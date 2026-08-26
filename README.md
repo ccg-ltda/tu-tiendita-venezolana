@@ -1,45 +1,96 @@
 # Tu Tiendita Venezolana
 
-Catálogo de comercio electrónico migrado de un único HTML a React + Vite. El proyecto mantiene filtros, búsqueda, carrito persistente, checkout demostrativo, políticas e imágenes de productos.
+Aplicación de comercio electrónico con frontend React, backend Node.js + Express y base de datos SQLite.
 
-## Ejecutar localmente
+## Funcionalidades
+
+- Catálogo, búsqueda, categorías y carrito persistente.
+- Inventario validado por el servidor.
+- Registro de pedidos y descuento transaccional de existencias.
+- Inicio de sesión administrativo con contraseña cifrada mediante scrypt.
+- Sesiones almacenadas en SQLite y enviadas en cookies HttpOnly.
+- Creación y edición de productos, precios, inventario y visibilidad.
+- API protegida para administración.
+
+## Requisitos
+
+- Node.js 22.13 o posterior.
+- npm.
+
+## Ejecutar en desarrollo
+
+Instala las dependencias:
 
 ```bash
 npm install
+```
+
+Copia `.env.example` como `.env` y cambia, como mínimo, la contraseña administrativa:
+
+```env
+ADMIN_EMAIL=admin@tutiendita.com
+ADMIN_PASSWORD=una-contraseña-larga-y-unica
+PORT=3001
+DATABASE_PATH=data/store.sqlite
+```
+
+Inicia frontend y backend con un solo comando:
+
+```bash
 npm run dev
 ```
 
-Para crear la versión de producción:
+La tienda se abre normalmente en `http://127.0.0.1:5173` y Vite redirige las solicitudes `/api` al backend de `http://127.0.0.1:3001`.
+
+También pueden ejecutarse por separado:
+
+```bash
+npm run dev:server
+npm run dev:client
+```
+
+## Producción
+
+Genera el frontend:
 
 ```bash
 npm run build
 ```
 
-El resultado queda en `dist/` y puede publicarse en GitHub Pages, Netlify o Vercel.
+Inicia Node con `NODE_ENV=production`. En PowerShell:
 
-El flujo `.github/workflows/deploy-pages.yml` publica automáticamente cada cambio enviado a la rama `main`. En GitHub activa **Settings → Pages → Source → GitHub Actions** una sola vez.
+```powershell
+$env:NODE_ENV='production'
+npm start
+```
+
+Express servirá tanto la API como los archivos generados en `dist/`. El proveedor de alojamiento debe soportar Node.js y almacenamiento persistente para conservar `data/store.sqlite`. GitHub Pages por sí solo no puede ejecutar este backend.
+
+## API principal
+
+- `GET /api/health`: estado del servidor.
+- `GET /api/products`: catálogo público.
+- `POST /api/orders`: registra un pedido y descuenta inventario.
+- `POST /api/auth/login`: inicia la sesión administrativa.
+- `GET /api/auth/session`: comprueba la sesión.
+- `POST /api/auth/logout`: cierra la sesión.
+- `GET /api/admin/products`: catálogo completo, requiere sesión.
+- `POST /api/admin/products`: crea un producto.
+- `PUT /api/admin/products/:id`: actualiza producto, precio o inventario.
+- `POST /api/admin/products/reset`: restaura el catálogo inicial.
+- `GET /api/admin/orders`: lista pedidos registrados.
 
 ## Estructura
 
-- `src/components/`: componentes React por dominio.
-- `src/data/`: catálogo, categorías, marca y políticas.
-- `src/styles/`: estilos globales y adaptaciones React.
-- `src/utils/`: funciones compartidas.
-- `public/assets/`: logo, banner e imágenes de productos.
-- `scripts/`: herramienta reproducible de extracción desde el HTML original.
-- `legacy/`: copia del prototipo monolítico original, conservada como respaldo.
+- `server/`: API, autenticación y base SQLite.
+- `src/components/`: interfaz React.
+- `src/services/api.js`: cliente de la API.
+- `src/data/products.json`: catálogo usado para la carga inicial.
+- `data/store.sqlite`: datos persistentes; no se incluye en Git.
+- `public/assets/`: marca e imágenes de productos.
 
-## Pagos y correo
+## Seguridad y pagos
 
-El pago actual es una simulación heredada del prototipo. Copia `.env.example` como `.env` y configura las credenciales, pero usa un backend para generar firmas de integridad de Wompi, validar webhooks, descontar inventario y enviar recibos. Nunca publiques llaves privadas en variables `VITE_*`.
+La contraseña nunca se envía al frontend salvo durante el formulario de acceso y se almacena en forma derivada, no como texto. Cambia las credenciales predeterminadas antes de publicar y usa HTTPS en producción.
 
-## Subir a GitHub
-
-```bash
-git init
-git add .
-git commit -m "Migrar tienda a React"
-git branch -M main
-git remote add origin URL_DE_TU_REPOSITORIO
-git push -u origin main
-```
+Los pedidos ya se registran de forma real en la base de datos, pero el cobro electrónico todavía requiere integrar Wompi en el servidor, validar su webhook y cambiar el estado del pedido después de confirmar el pago.
