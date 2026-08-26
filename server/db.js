@@ -1,16 +1,21 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { createClient } from '@libsql/client';
+import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import catalog from '../src/data/products.json' with { type: 'json' };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const databasePath = resolve(root, process.env.DATABASE_PATH || 'data/store.sqlite');
-mkdirSync(dirname(databasePath), { recursive: true });
+const localPath = resolve(root, process.env.DATABASE_PATH || 'data/store.sqlite');
+const remoteUrl = process.env.TURSO_DATABASE_URL?.trim();
+if (!remoteUrl) mkdirSync(dirname(localPath), { recursive: true });
 
-export const db = new DatabaseSync(databasePath);
-db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-db.exec(`
+export const db = createClient({
+  url: remoteUrl || `file:${localPath.replaceAll('\\', '/')}`,
+  authToken: remoteUrl ? process.env.TURSO_AUTH_TOKEN : undefined,
+});
+
+const schema = `
   CREATE TABLE IF NOT EXISTS admin_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
@@ -61,7 +66,7 @@ db.exec(`
     unit_price INTEGER NOT NULL,
     quantity INTEGER NOT NULL CHECK(quantity > 0)
   );
-`);
+`;
 
 export function hashPassword(password) {
   const salt = randomBytes(16);
@@ -77,53 +82,61 @@ export function verifyPassword(password, stored) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function seedCatalog({ force = false } = {}) {
-  const catalog = JSON.parse(readFileSync(resolve(root, 'src/data/products.json'), 'utf8'));
-  const count = db.prepare('SELECT COUNT(*) AS count FROM products').get().count;
-  if (count && !force) return;
-  const insert = db.prepare(`
-    INSERT INTO products (id, img, category, subcategory, name, presentation, price, image, inventory, active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `);
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    if (force) db.exec('DELETE FROM products');
-    for (const product of catalog) {
-      insert.run(product.id, product.img || null, product.cat, product.sub, product.name, product.pres || 'Unidad', Math.max(0, Number(product.price) || 0), product.image || null, 20);
-    }
-    db.exec('COMMIT');
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
+export async function queryOne(sql, args = []) {
+  const result = await db.execute({ sql, args });
+  return result.rows[0] || null;
+}
+
+export async function queryAll(sql, args = []) {
+  const result = await db.execute({ sql, args });
+  return result.rows;
+}
+
+export async function seedCatalog({ force = false } = {}) {
+  const row = await queryOne('SELECT COUNT(*) AS count FROM products');
+  if (Number(row?.count) && !force) return;
+  const statements = [];
+  if (force) statements.push('DELETE FROM products');
+  for (const product of catalog) {
+    statements.push({
+      sql: `INSERT OR IGNORE INTO products (id, img, category, subcategory, name, presentation, price, image, inventory, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      args: [product.id, product.img || null, product.cat, product.sub, product.name, product.pres || 'Unidad', Math.max(0, Number(product.price) || 0), product.image || null, 20],
+    });
   }
+  await db.batch(statements, 'write');
 }
 
 export function toProduct(row) {
   return {
-    id: row.id,
+    id: Number(row.id),
     img: row.img,
     cat: row.category,
     sub: row.subcategory,
     name: row.name,
     pres: row.presentation,
-    price: row.price,
+    price: Number(row.price),
     image: row.image,
-    inventory: row.inventory,
+    inventory: Number(row.inventory),
     active: Boolean(row.active),
   };
 }
 
-seedCatalog();
-
-const adminEmail = (process.env.ADMIN_EMAIL || 'admin@tutiendita.com').trim().toLowerCase();
-const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123!';
-const existingAdmin = db.prepare('SELECT id FROM admin_users WHERE email = ?').get(adminEmail);
-if (!existingAdmin) {
-  if (process.env.ADMIN_EMAIL || process.env.ADMIN_PASSWORD) {
-    db.exec('DELETE FROM sessions; DELETE FROM admin_users;');
+async function initialize() {
+  await db.executeMultiple(schema);
+  await seedCatalog();
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@tutiendita.com').trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123!';
+  const existingAdmin = await queryOne('SELECT id FROM admin_users WHERE email = ?', [adminEmail]);
+  if (!existingAdmin) {
+    if (process.env.ADMIN_EMAIL || process.env.ADMIN_PASSWORD) {
+      await db.batch(['DELETE FROM sessions', 'DELETE FROM admin_users'], 'write');
+    }
+    await db.execute({ sql: 'INSERT INTO admin_users (email, password_hash) VALUES (?, ?)', args: [adminEmail, hashPassword(adminPassword)] });
+    console.info(`Administrador inicial creado: ${adminEmail}`);
+  } else if (process.env.ADMIN_PASSWORD) {
+    await db.execute({ sql: 'UPDATE admin_users SET password_hash = ? WHERE id = ?', args: [hashPassword(adminPassword), existingAdmin.id] });
   }
-  db.prepare('INSERT INTO admin_users (email, password_hash) VALUES (?, ?)').run(adminEmail, hashPassword(adminPassword));
-  console.info(`Administrador inicial creado: ${adminEmail}`);
-} else if (process.env.ADMIN_PASSWORD) {
-  db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(hashPassword(adminPassword), existingAdmin.id);
 }
+
+export const databaseReady = initialize();

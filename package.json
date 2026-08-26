@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:client": "vite",
@@ -13,6 +16,7 @@
     "extract:legacy": "node scripts/extract-from-html.cjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "express": "^5.2.1",
     "react": "latest",
     "react-dom": "latest"

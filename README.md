@@ -1,6 +1,6 @@
 # Tu Tiendita Venezolana
 
-Aplicación de comercio electrónico con frontend React, backend Node.js + Express y base de datos SQLite.
+Aplicación de comercio electrónico con frontend React, backend Node.js + Express y base de datos libSQL. Usa SQLite localmente y Turso como almacenamiento persistente en Vercel.
 
 ## Funcionalidades
 
@@ -8,7 +8,7 @@ Aplicación de comercio electrónico con frontend React, backend Node.js + Expre
 - Inventario validado por el servidor.
 - Registro de pedidos y descuento transaccional de existencias.
 - Inicio de sesión administrativo con contraseña cifrada mediante scrypt.
-- Sesiones almacenadas en SQLite y enviadas en cookies HttpOnly.
+- Sesiones almacenadas en la base de datos y enviadas en cookies HttpOnly.
 - Creación y edición de productos, precios, inventario y visibilidad.
 - API protegida para administración.
 
@@ -32,6 +32,8 @@ ADMIN_EMAIL=admin@tutiendita.com
 ADMIN_PASSWORD=una-contraseña-larga-y-unica
 PORT=3001
 DATABASE_PATH=data/store.sqlite
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
 ```
 
 Inicia frontend y backend con un solo comando:
@@ -49,7 +51,31 @@ npm run dev:server
 npm run dev:client
 ```
 
-## Producción
+## Desplegar en Vercel con Turso
+
+1. Crea una base de datos en Turso desde su panel o CLI.
+2. Obtén la URL y un token:
+
+```bash
+turso db show --url tu-tiendita
+turso db tokens create tu-tiendita
+```
+
+3. Importa este repositorio desde el panel de Vercel.
+4. En **Settings → Environment Variables**, configura:
+
+```env
+TURSO_DATABASE_URL=libsql://tu-base-tu-organizacion.turso.io
+TURSO_AUTH_TOKEN=tu-token-privado
+ADMIN_EMAIL=admin@tutiendita.com
+ADMIN_PASSWORD=una-contraseña-larga-y-unica
+```
+
+5. Despliega. `vercel.json` compila React, publica `dist/` y dirige las rutas `/api/*` a la función Express.
+
+El esquema, el administrador inicial y los 198 productos se crean automáticamente durante la primera solicitud. No configures `DATABASE_PATH` en Vercel; esa variable es únicamente para desarrollo local.
+
+## Producción en un servidor Node tradicional
 
 Genera el frontend:
 
@@ -64,7 +90,7 @@ $env:NODE_ENV='production'
 npm start
 ```
 
-Express servirá tanto la API como los archivos generados en `dist/`. El proveedor de alojamiento debe soportar Node.js y almacenamiento persistente para conservar `data/store.sqlite`. GitHub Pages por sí solo no puede ejecutar este backend.
+Sin `TURSO_DATABASE_URL`, Express utilizará `data/store.sqlite` y servirá tanto la API como los archivos generados en `dist/`.
 
 ## API principal
 
@@ -82,11 +108,13 @@ Express servirá tanto la API como los archivos generados en `dist/`. El proveed
 
 ## Estructura
 
-- `server/`: API, autenticación y base SQLite.
+- `server/`: API, autenticación y acceso a libSQL/Turso.
+- `api/index.js`: entrada serverless utilizada por Vercel.
 - `src/components/`: interfaz React.
 - `src/services/api.js`: cliente de la API.
 - `src/data/products.json`: catálogo usado para la carga inicial.
-- `data/store.sqlite`: datos persistentes; no se incluye en Git.
+- `data/store.sqlite`: base local de desarrollo; no se incluye en Git.
+- `vercel.json`: compilación y rutas para Vercel.
 - `public/assets/`: marca e imágenes de productos.
 
 ## Seguridad y pagos
