@@ -6,7 +6,17 @@ export default defineConfig({
   base: './',
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:3001',
+      // La nueva autenticación administrativa se procesa en Laravel.
+      '/api/auth': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+
+      // El resto de la tienda continúa temporalmente usando Express.
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+      },
     },
   },
 });

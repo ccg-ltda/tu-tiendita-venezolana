@@ -14,8 +14,6 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { Toast } from './components/cart/Toast';
 import { PolicyModal } from './components/common/PolicyModal';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
-import { AdminLoginModal } from './components/admin/AdminLoginModal';
-import { AdminPanel } from './components/admin/AdminPanel';
 
 export default function App() {
   const [catalog, setCatalog] = useState([]);
@@ -28,15 +26,13 @@ export default function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toastProduct, setToastProduct] = useState(null);
   const [activePolicy, setActivePolicy] = useState(null);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
 
-  const loadProducts = async (admin = false) => {
+
+  const loadProducts = async () => {
     try {
-      const result = admin ? await api.listAdminProducts() : await api.listProducts();
+      const result = await api.listProducts();
       setCatalog(result.products);
       setCatalogError('');
       return result.products;
@@ -49,18 +45,17 @@ export default function App() {
   useEffect(() => {
     const initialize = async () => {
       try {
-        const session = await api.session();
-        setIsAdmin(Boolean(session.admin));
-        await loadProducts(Boolean(session.admin));
-      } catch (error) {
-        setIsAdmin(false);
-        await loadProducts(false).catch(() => {});
+        await loadProducts();
+      } catch {
+        // El error del catálogo ya es manejado por loadProducts.
       } finally {
         setLoading(false);
       }
     };
+
     initialize();
   }, []);
+
   useEffect(() => localStorage.setItem('ttv-cart', JSON.stringify(cart)), [cart]);
   useEffect(() => setCart((current) => {
     let changed = false;
@@ -103,43 +98,7 @@ export default function App() {
     return next;
   });
   const addProduct = (product) => { if (!cart[product.id]) setQuantity(product.id, 1); setToastProduct(product); };
-  const handleAdminAccess = async () => {
-    if (!isAdmin) return setLoginOpen(true);
-    try {
-      await loadProducts(true);
-      setAdminOpen(true);
-    } catch (error) {
-      setIsAdmin(false);
-      setLoginOpen(true);
-    }
-  };
-  const handleLogin = async (credentials) => {
-    await api.login(credentials);
-    setIsAdmin(true);
-    setLoginOpen(false);
-    await loadProducts(true);
-    setAdminOpen(true);
-  };
-  const handleLogout = async () => {
-    await api.logout().catch(() => {});
-    setIsAdmin(false);
-    setAdminOpen(false);
-    await loadProducts(false);
-  };
-  const saveProduct = async (product) => {
-    const result = await api.updateProduct(product);
-    setCatalog((current) => current.map((item) => item.id === result.product.id ? result.product : item));
-    return result.product;
-  };
-  const createProduct = async (product) => {
-    const result = await api.createProduct(product);
-    setCatalog((current) => [...current, result.product]);
-    return result.product;
-  };
-  const resetCatalog = async () => {
-    const result = await api.resetProducts();
-    setCatalog(result.products);
-  };
+
   const completeOrder = async ({ customer, items }) => {
     const result = await api.createOrder({ customer, items: items.map((item) => ({ id: item.id, qty: item.qty })) });
     setCart({});
@@ -150,7 +109,12 @@ export default function App() {
   return (
     <div id='inicio'>
       <Awning />
-      <Header cartCount={cartCount} onCartOpen={() => setDrawerOpen(true)} search={search} onSearch={setSearch} isAdmin={isAdmin} onAdmin={handleAdminAccess} />
+      <Header
+        cartCount={cartCount}
+        onCartOpen={() => setDrawerOpen(true)}
+        search={search}
+        onSearch={setSearch}
+      />
       <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' /></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
@@ -163,8 +127,6 @@ export default function App() {
       <CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onComplete={completeOrder} />
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
-      <AdminLoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
-      <AdminPanel open={adminOpen && isAdmin} products={catalog} onSaveProduct={saveProduct} onAddProduct={createProduct} onClose={() => setAdminOpen(false)} onLogout={handleLogout} onReset={resetCatalog} />
     </div>
   );
 }
