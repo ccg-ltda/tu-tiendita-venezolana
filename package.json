@@ -19,7 +19,8 @@
     "@libsql/client": "^0.17.4",
     "express": "^5.2.1",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "latest",
