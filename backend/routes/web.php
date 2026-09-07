@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\Auth\AdminAuthController;
+use App\Http\Controllers\Public\ProductController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/api/products', [ProductController::class, 'index']);
 
 Route::prefix('api/auth')->group(function () {
 
