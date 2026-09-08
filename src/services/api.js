@@ -51,6 +51,8 @@ export const api = {
   // Administración: autenticación nueva mediante Laravel.
   me: () => request('/api/auth/me'),
 
+  listAdminProducts: () => request('/api/admin/products'),
+
   login: async (credentials) => {
     const csrfToken = await getCsrfToken();
 
