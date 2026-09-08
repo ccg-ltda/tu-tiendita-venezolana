@@ -42,14 +42,22 @@ export const api = {
   // Tienda pública: continúa temporalmente usando Express.
   listProducts: () => request('/api/products'),
 
-  createOrder: (order) =>
-    request('/api/orders', {
+  createOrder: async (order) => {
+    const csrfToken = await getCsrfToken();
+
+    return request('/api/orders', {
       method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': csrfToken,
+      },
       body: JSON.stringify(order),
-    }),
+    });
+  },
 
   // Administración: autenticación nueva mediante Laravel.
   me: () => request('/api/auth/me'),
+
+  listAdminProducts: () => request('/api/admin/products'),
 
   login: async (credentials) => {
     const csrfToken = await getCsrfToken();

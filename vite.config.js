@@ -12,8 +12,18 @@ export default defineConfig({
         changeOrigin: true,
       },
 
+      '/api/admin/products': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+
       // El resto de la tienda continúa temporalmente usando Express.
       '/api/products': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+
+      '/api/orders': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
