@@ -1,12 +1,13 @@
 async function request(path, options = {}) {
   const { headers = {}, ...fetchOptions } = options;
+  const isFormData = fetchOptions.body instanceof FormData;
 
   const response = await fetch(path, {
     credentials: 'include',
     ...fetchOptions,
     headers: {
       Accept: 'application/json',
-      ...(fetchOptions.body && {
+      ...(fetchOptions.body && !isFormData && {
         'Content-Type': 'application/json',
       }),
       ...headers,
@@ -58,6 +59,42 @@ export const api = {
   me: () => request('/api/auth/me'),
 
   listAdminProducts: () => request('/api/admin/products'),
+
+  listAdminOrders: ({ page = 1, perPage = 25 } = {}) => request(`/api/admin/orders?page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`),
+
+  getAdminOrder: (id) => request(`/api/admin/orders/${encodeURIComponent(id)}`),
+
+  createAdminProduct: async (product) => {
+    const csrfToken = await getCsrfToken();
+
+    return request('/api/admin/products', {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': csrfToken },
+      body: productFormData(product),
+    });
+  },
+
+  updateAdminProduct: async (id, product) => {
+    const csrfToken = await getCsrfToken();
+    const formData = productFormData(product);
+    formData.append('_method', 'PATCH');
+
+    return request(`/api/admin/products/${id}`, {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': csrfToken },
+      body: formData,
+    });
+  },
+
+  updateAdminProductStatus: async (id, active) => {
+    const csrfToken = await getCsrfToken();
+
+    return request(`/api/admin/products/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'X-CSRF-TOKEN': csrfToken },
+      body: JSON.stringify({ active }),
+    });
+  },
 
   login: async (credentials) => {
     const csrfToken = await getCsrfToken();
@@ -116,3 +153,14 @@ export const api = {
     });
   },
 };
+
+function productFormData(product) {
+  const formData = new FormData();
+
+  ['name', 'category', 'subcategory', 'presentation', 'price'].forEach((field) => {
+    formData.append(field, product[field]);
+  });
+  if (product.image instanceof File) formData.append('image', product.image);
+
+  return formData;
+}

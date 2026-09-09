@@ -12,13 +12,23 @@ export default defineConfig({
         changeOrigin: true,
       },
 
+      '/storage': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+
       '/api/admin/products': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
 
-      // El resto de la tienda continúa temporalmente usando Express.
+      // El resto de las rutas API se resuelven en Laravel.
       '/api/products': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+
+      '/api/admin/orders': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
@@ -29,7 +39,7 @@ export default defineConfig({
       },
 
       '/api': {
-        target: 'http://127.0.0.1:3001',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

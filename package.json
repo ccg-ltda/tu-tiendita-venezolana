@@ -7,17 +7,12 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "dev": "vite",
     "dev:client": "vite",
-    "dev:server": "node --env-file-if-exists=.env --watch server/index.js",
-    "start": "node --env-file-if-exists=.env server/index.js",
     "build": "vite build",
-    "preview": "vite preview",
-    "extract:legacy": "node scripts/extract-from-html.cjs"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.4",
-    "express": "^5.2.1",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "^7.18.3"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import branding from './data/branding.json';
 import { policies } from './data/policies';
 import { unique, normalizeText } from './utils/catalog';
@@ -28,16 +28,20 @@ export default function App() {
   const [activePolicy, setActivePolicy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  const catalogLoaded = useRef(false);
+  const revalidationInFlight = useRef(false);
+  const lastRevalidationAt = useRef(0);
 
 
-  const loadProducts = async () => {
+  const loadProducts = async (silent = false) => {
     try {
       const result = await api.listProducts();
       setCatalog(result.products);
+      catalogLoaded.current = true;
       setCatalogError('');
       return result.products;
     } catch (error) {
-      setCatalogError(error.message);
+      if (!silent) setCatalogError(error.message);
       throw error;
     }
   };
@@ -54,6 +58,34 @@ export default function App() {
     };
 
     initialize();
+  }, []);
+
+  useEffect(() => {
+    const revalidateCatalog = async () => {
+      const now = Date.now();
+      if (!catalogLoaded.current || revalidationInFlight.current || now - lastRevalidationAt.current < 1000) return;
+
+      revalidationInFlight.current = true;
+      lastRevalidationAt.current = now;
+      try {
+        await loadProducts(true);
+      } catch {
+        // Conserva el catálogo actual durante un fallo transitorio de revalidación.
+      } finally {
+        revalidationInFlight.current = false;
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') revalidateCatalog();
+    };
+
+    window.addEventListener('focus', revalidateCatalog);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', revalidateCatalog);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => localStorage.setItem('ttv-cart', JSON.stringify(cart)), [cart]);
