@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\OrderController;
 use App\Http\Controllers\Public\ProductController;
@@ -17,7 +18,12 @@ Route::post('/api/orders', [OrderController::class, 'store']);
 Route::prefix('api/admin')
     ->middleware(EnsureAdminAuthenticated::class)
     ->group(function () {
+        Route::get('/orders', [AdminOrderController::class, 'index']);
+        Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
         Route::get('/products', [AdminProductController::class, 'index']);
+        Route::post('/products', [AdminProductController::class, 'store']);
+        Route::patch('/products/{product}', [AdminProductController::class, 'update']);
+        Route::patch('/products/{product}/status', [AdminProductController::class, 'updateStatus']);
     });
 
 Route::prefix('api/auth')->group(function () {

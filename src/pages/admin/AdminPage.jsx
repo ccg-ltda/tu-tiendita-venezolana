@@ -7,7 +7,7 @@ import '../../styles/admin-dashboard.css';
 const navigation = [
   { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
   { label: 'Productos', icon: 'products', path: '/admin/products' },
-  { label: 'Pedidos', icon: 'orders' },
+  { label: 'Pedidos', icon: 'orders', path: '/admin/orders' },
   { label: 'Inventario', icon: 'inventory' },
 ];
 
