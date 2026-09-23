@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,15 +22,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // El enlace de recuperación dirige al frontend React.
-        ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
-            $query = http_build_query([
-                'token' => $token,
-                'email' => $notifiable->getEmailForPasswordReset(),
-            ], '', '&', PHP_QUERY_RFC3986);
-
-            return rtrim((string) config('app.frontend_url'), '/')
-                .'/admin/reset-password?'.$query;
+        RateLimiter::for('admin-login', static function (Request $request): Limit {
+            return Limit::perMinutes(15, 8)
+                ->by('admin-login:'.$request->ip());
         });
+
+        RateLimiter::for('wompi-prepare', static function (Request $request): Limit {
+            return Limit::perMinute(10)
+                ->by('wompi-prepare:'.$request->ip())
+                ->response(static fn (Request $request, array $headers) => response()->json([
+                    'error' => 'Demasiados intentos de pago. Intenta nuevamente en un minuto.',
+                ], 429, $headers));
+        });
+
+        RateLimiter::for('wompi-status', static function (Request $request): Limit {
+            $token = $request->header('X-Checkout-Status-Token');
+            $tokenHash = hash('sha256', is_string($token) ? $token : 'missing');
+
+            return Limit::perMinute(20)
+                ->by('wompi-status:'.$request->ip().':'.$tokenHash);
+        });
+
     }
 }

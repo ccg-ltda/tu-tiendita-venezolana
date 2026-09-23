@@ -2,172 +2,168 @@
 
 namespace Tests\Feature\Orders;
 
-use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Product;
-use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use App\Services\AdminOrdersCache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AdminOrderTest extends TestCase
 {
-    use DatabaseTransactions;
+    private AdminOrdersCache $cache;
 
-    public function test_an_unauthenticated_user_cannot_list_or_view_orders(): void
+    protected function setUp(): void
     {
-        $order = $this->order();
+        parent::setUp();
+        $this->cache = app(AdminOrdersCache::class);
+        $this->cache->forgetList(1, 25);
+        $this->cache->forgetDetail(42);
+    }
 
+    public function test_unauthenticated_requests_are_rejected_without_upstream(): void
+    {
         $this->getJson('/api/admin/orders')->assertUnauthorized();
-        $this->getJson("/api/admin/orders/{$order->id}")->assertUnauthorized();
+        $this->getJson('/api/admin/orders/42')->assertUnauthorized();
+        Http::assertNothingSent();
     }
 
-    public function test_a_customer_cannot_list_or_view_orders(): void
+    public function test_fresh_list_is_served_without_upstream(): void
     {
-        $order = $this->order();
-        $customer = User::factory()->create(['role' => 'customer']);
-
-        $this->actingAs($customer)->getJson('/api/admin/orders')->assertForbidden();
-        $this->actingAs($customer)->getJson("/api/admin/orders/{$order->id}")->assertForbidden();
+        $data = $this->listData();
+        $this->cache->putList(1, 25, $data);
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders')->assertOk()->assertExactJson($data);
+        Http::assertNothingSent();
     }
 
-    public function test_an_admin_can_list_orders_in_descending_id_order_with_an_explicit_paginated_contract(): void
+    public function test_stale_list_is_served_without_upstream(): void
     {
-        $totalBefore = Order::query()->count();
-        $first = $this->order(['customer_name' => 'First customer']);
-        $second = $this->order(['customer_name' => 'Second customer']);
-
-        $response = $this->actingAs($this->admin())->getJson('/api/admin/orders?per_page=1')->assertOk();
-
-        $this->assertSame(['orders', 'pagination'], array_keys($response->json()));
-        $this->assertSame(1, $response->json('pagination.current_page'));
-        $this->assertSame(1, $response->json('pagination.per_page'));
-        $this->assertSame($totalBefore + 2, $response->json('pagination.total'));
-        $this->assertSame((int) ceil(($totalBefore + 2) / 1), $response->json('pagination.last_page'));
-        $this->assertSame([$second->id], collect($response->json('orders'))->pluck('id')->all());
-
-        $listedOrder = $response->json('orders.0');
-        $this->assertSame($this->listFields(), array_keys($listedOrder));
-        $this->assertSame($second->reference, $listedOrder['reference']);
-        $this->assertSame('PENDING', $listedOrder['status']);
-        foreach (['customer_email', 'customer_phone', 'customer_document', 'address', 'extra', 'city', 'region', 'postal', 'items'] as $field) {
-            $this->assertArrayNotHasKey($field, $listedOrder);
-        }
-        $this->assertGreaterThan($first->id, $second->id);
+        $data = $this->listData();
+        $this->cache->putList(1, 25, $data);
+        $this->travel(61)->seconds();
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders')->assertOk()->assertExactJson($data);
+        Http::assertNothingSent();
     }
 
-    public function test_the_order_list_caps_per_page_at_one_hundred(): void
+    public function test_missing_list_returns_503_without_upstream(): void
     {
-        $response = $this->actingAs($this->admin())->getJson('/api/admin/orders?per_page=1000')->assertOk();
-
-        $response->assertJsonPath('pagination.per_page', 100);
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders')->assertStatus(503);
+        Http::assertNothingSent();
     }
 
-    public function test_an_admin_can_view_an_order_detail_with_snapshot_items_without_changing_inventory(): void
+    public function test_fresh_detail_is_served_without_upstream(): void
     {
-        $product = $this->product(inventory: 13);
-        $order = $this->order([
-            'customer_name' => 'Customer name',
-            'customer_email' => 'customer@example.test',
-            'customer_phone' => '3000000000',
-            'customer_document' => '1000000000',
-            'address' => 'Test address',
-            'extra' => 'Apartment 2',
-            'city' => 'Bogota',
-            'region' => 'Bogota D.C.',
-            'postal' => '110111',
-            'total' => 22500,
-        ]);
-        $firstItem = OrderItem::query()->create([
-            'order_id' => $order->id,
-            'product_id' => $product->id,
-            'product_name' => 'Historical name',
-            'unit_price' => 11250,
-            'quantity' => 2,
-        ]);
-
-        $response = $this->actingAs($this->admin())->getJson("/api/admin/orders/{$order->id}")->assertOk();
-        $detail = $response->json('order');
-
-        $this->assertSame(['order'], array_keys($response->json()));
-        $this->assertSame($this->detailFields(), array_keys($detail));
-        $this->assertSame($order->reference, $detail['reference']);
-        $this->assertSame('Customer name', $detail['customer_name']);
-        $this->assertSame('customer@example.test', $detail['customer_email']);
-        $this->assertSame(22500, $detail['total']);
-        $this->assertCount(1, $detail['items']);
-        $this->assertSame($this->itemFields(), array_keys($detail['items'][0]));
-        $this->assertSame($firstItem->id, $detail['items'][0]['id']);
-        $this->assertSame($product->id, $detail['items'][0]['product_id']);
-        $this->assertSame('Historical name', $detail['items'][0]['product_name']);
-        $this->assertSame(11250, $detail['items'][0]['unit_price']);
-        $this->assertSame(2, $detail['items'][0]['quantity']);
-        $this->assertSame(13, $product->fresh()->inventory);
+        $detail = $this->detail();
+        $this->cache->putDetail(42, $detail);
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
+        Http::assertNothingSent();
     }
 
-    public function test_an_admin_receives_not_found_for_a_missing_order(): void
+    public function test_stale_detail_is_served_without_upstream(): void
     {
-        $this->actingAs($this->admin())->getJson('/api/admin/orders/999999999')->assertNotFound();
+        $detail = $this->detail();
+        $this->cache->putDetail(42, $detail);
+        $this->travel(61)->seconds();
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
+        Http::assertNothingSent();
     }
 
-    private function admin(): User
+    public function test_missing_detail_is_loaded_once_and_then_served_from_cache(): void
     {
-        return User::factory()->create(['role' => 'admin']);
+        $detail = $this->detail();
+        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
+        Http::fake(function ($request) use ($detail) {
+            $this->assertSame('admin_get_order', $request->data()['action']);
+
+            return Http::response(['ok' => true, 'data' => ['order' => $detail]], 200);
+        });
+
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
+        $this->assertSame($detail, $this->cache->detail(42)['data']);
+        Http::assertSentCount(1);
+
+        Http::fake();
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
+        Http::assertNothingSent();
     }
 
-    /** @param array<string, mixed> $overrides */
-    private function order(array $overrides = []): Order
+    public function test_detail_refresh_failure_does_not_break_the_cached_list(): void
     {
-        return Order::query()->create(array_merge([
-            'reference' => 'TTV-TEST-'.strtoupper(uniqid()),
-            'status' => 'PENDING',
-            'customer_name' => 'Test customer',
-            'customer_email' => 'test@example.test',
-            'customer_phone' => '3000000000',
-            'customer_document' => '1000000000',
-            'address' => 'Test address',
-            'extra' => null,
-            'city' => 'Bogota',
-            'region' => 'Bogota D.C.',
-            'postal' => null,
-            'total' => 1000,
-            'created_at' => now(),
-        ], $overrides));
+        $list = $this->listData();
+        $this->cache->putList(1, 25, $list);
+        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
+        Http::fake(['https://script.example/exec' => Http::response('temporary upstream failure', 503)]);
+
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertStatus(503);
+        $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders')->assertOk()->assertExactJson($list);
+        Http::assertSentCount(3);
     }
 
-    private function product(int $inventory): Product
+    public function test_refresh_lock_returns_callback_result(): void
     {
-        return Product::query()->create([
-            'img' => 'test-image',
-            'category' => 'Test category',
-            'subcategory' => 'Test subcategory',
-            'name' => 'Current product name',
-            'presentation' => 'Unit',
-            'price' => 1000,
-            'image' => 'assets/products/test.jpg',
-            'inventory' => $inventory,
-            'active' => true,
-        ]);
+        $this->assertSame(['ok' => true], $this->cache->withRefreshLock('test-list', static fn (): array => ['ok' => true]));
     }
 
-    /** @return list<string> */
-    private function listFields(): array
+    public function test_scheduler_refreshes_list_without_precaching_each_detail(): void
     {
-        return ['id', 'reference', 'status', 'customer_name', 'total', 'created_at'];
+        config()->set('services.apps_script.url', 'https://script.example/exec');
+        config()->set('services.apps_script.api_key', 'test-key');
+        Http::fake(function ($request) {
+            $payload = $request->data();
+            if ($payload['action'] === 'admin_list_orders') return Http::response(['ok' => true, 'data' => $this->listData()], 200);
+            $this->fail('The list refresh must not request individual order details.');
+        });
+
+        $this->artisan('orders:refresh-admin-cache')->assertSuccessful();
+        $this->assertNotNull($this->cache->list(1, 25));
+        $this->assertNull($this->cache->detail(42));
+        Http::assertSentCount(1);
     }
 
-    /** @return list<string> */
-    private function detailFields(): array
+    public function test_scheduler_failure_preserves_existing_cache(): void
+    {
+        $data = $this->listData();
+        $this->cache->putList(1, 25, $data);
+        config()->set('services.apps_script.url', 'https://script.example/exec');
+        config()->set('services.apps_script.api_key', 'test-key');
+        Http::fake(['https://script.example/exec' => Http::response([], 503)]);
+        $this->artisan('orders:refresh-admin-cache')->assertFailed();
+        $this->assertSame($data, $this->cache->list(1, 25)['data']);
+    }
+
+    /** @dataProvider statusTransitions */
+    public function test_operational_status_transitions_are_validated(string $from, string $payment, string $target, int $expectedStatus): void
+    {
+        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
+        Http::fake(function ($request) use ($from, $payment, $target) {
+            $data = $request->data();
+            if ($data['action'] === 'admin_get_order') return Http::response(['ok' => true, 'data' => ['order' => $this->detail(42, $from, $payment)]], 200);
+            return Http::response(['ok' => true, 'data' => ['order_id' => 42, 'status' => $target, 'updated_at' => '2026-09-21T13:05:20.000Z', 'revision' => 2, 'idempotency_replayed' => false]], 200);
+        });
+
+        $this->withSession(['admin_authenticated' => true])->patchJson('/api/admin/orders/42/status', ['status' => $target])->assertStatus($expectedStatus);
+        Http::assertSentCount($expectedStatus === 200 ? 2 : 1);
+    }
+
+    public static function statusTransitions(): array
     {
         return [
-            'id', 'reference', 'status', 'customer_name', 'customer_email', 'customer_phone',
-            'customer_document', 'address', 'extra', 'city', 'region', 'postal', 'total',
-            'created_at', 'items',
+            'paid pending to processing' => ['PENDING', 'APPROVED', 'PROCESSING', 200],
+            'unpaid pending to processing' => ['PENDING', 'PENDING', 'PROCESSING', 422],
+            'processing to ready' => ['PROCESSING', 'APPROVED', 'READY', 200],
+            'ready to shipped' => ['READY', 'APPROVED', 'SHIPPED', 200],
+            'ready direct delivered' => ['READY', 'APPROVED', 'DELIVERED', 200],
+            'shipped to delivered' => ['SHIPPED', 'APPROVED', 'DELIVERED', 200],
+            'pending to shipped rejected' => ['PENDING', 'APPROVED', 'SHIPPED', 422],
+            'delivered final' => ['DELIVERED', 'APPROVED', 'PROCESSING', 422],
+            'cancelled final' => ['CANCELLED', 'APPROVED', 'PROCESSING', 422],
         ];
     }
 
-    /** @return list<string> */
-    private function itemFields(): array
+    private function listData(): array
     {
-        return ['id', 'product_id', 'product_name', 'unit_price', 'quantity'];
+        return ['orders' => [['id' => 42, 'reference' => 'TTV-ADMIN-42', 'status' => 'PENDING', 'payment_status' => 'APPROVED', 'customer_name' => 'Cliente de Prueba', 'total' => 19500, 'created_at' => '2026-09-21T13:04:20.000Z']], 'pagination' => ['current_page' => 1, 'per_page' => 25, 'total' => 1, 'last_page' => 1]];
+    }
+
+    private function detail(int $id = 42, string $status = 'PENDING', string $paymentStatus = 'APPROVED'): array
+    {
+        return ['id' => $id, 'reference' => "TTV-ADMIN-{$id}", 'status' => $status, 'payment_status' => $paymentStatus, 'reservation_status' => 'CONSUMED', 'paid_at' => $paymentStatus === 'APPROVED' ? '2026-09-21T13:04:20.000Z' : null, 'payment' => null, 'customer_name' => 'Cliente de Prueba', 'customer_email' => 'cliente@example.test', 'customer_phone' => '3000000000', 'customer_document' => '1000000000', 'address' => 'Direccion de prueba', 'extra' => null, 'city' => 'Bogota', 'region' => 'Bogota D.C.', 'postal' => null, 'total' => 19500, 'created_at' => '2026-09-21T13:04:20.000Z', 'items' => [['id' => 9, 'product_id' => 193, 'product_name' => 'Producto historico', 'unit_price' => 19500, 'quantity' => 1]]];
     }
 }

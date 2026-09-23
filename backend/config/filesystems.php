@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // The local disk is private; catalog snapshots must never be routable.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

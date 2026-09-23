@@ -1,133 +1,15 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
-
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\Product\StoreProductRequest;
-use App\Http\Requests\Admin\Product\UpdateProductRequest;
-use App\Http\Requests\Admin\Product\UpdateProductStatusRequest;
-use App\Models\Product;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Throwable;
-
-class ProductController extends Controller
-{
-    /**
-     * Return the full catalog for authenticated administrators.
-     */
-    public function index(): JsonResponse
-    {
-        $products = Product::query()
-            ->orderBy('id')
-            ->get()
-            ->map(fn (Product $product): array => $this->productPayload($product))
-            ->values();
-
-        return response()->json([
-            'products' => $products,
-        ]);
-    }
-
-    public function store(StoreProductRequest $request): JsonResponse
-    {
-        $validated = $request->validated();
-        $storedImage = null;
-
-        try {
-            $storedImage = $request->hasFile('image')
-                ? $this->storeProductImage($request->file('image'))
-                : null;
-
-            $product = Product::query()->create([
-                'img' => null,
-                'category' => $validated['category'],
-                'subcategory' => $validated['subcategory'],
-                'name' => $validated['name'],
-                'presentation' => $validated['presentation'],
-                'price' => $validated['price'],
-                'image' => $storedImage,
-                'inventory' => 0,
-                'active' => true,
-            ]);
-        } catch (Throwable $exception) {
-            $this->deleteManagedImage($storedImage);
-
-            throw $exception;
-        }
-
-        return response()->json(['product' => $this->productPayload($product)], 201);
-    }
-
-    public function update(UpdateProductRequest $request, Product $product): JsonResponse
-    {
-        $validated = $request->validated();
-        unset($validated['image']);
-        $storedImage = null;
-        $previousImage = $product->image;
-
-        try {
-            $storedImage = $request->hasFile('image')
-                ? $this->storeProductImage($request->file('image'))
-                : null;
-
-            $product->fill($validated);
-            if ($storedImage !== null) {
-                $product->image = $storedImage;
-            }
-            $product->save();
-        } catch (Throwable $exception) {
-            $this->deleteManagedImage($storedImage);
-
-            throw $exception;
-        }
-
-        if ($storedImage !== null) {
-            $this->deleteManagedImage($previousImage);
-        }
-
-        return response()->json(['product' => $this->productPayload($product)]);
-    }
-
-    public function updateStatus(UpdateProductStatusRequest $request, Product $product): JsonResponse
-    {
-        $product->active = $request->validated('active');
-        $product->save();
-
-        return response()->json(['product' => $this->productPayload($product)]);
-    }
-
-    private function productPayload(Product $product): array
-    {
-        return [
-            'id' => $product->id,
-            'img' => $product->img,
-            'category' => $product->category,
-            'subcategory' => $product->subcategory,
-            'name' => $product->name,
-            'presentation' => $product->presentation,
-            'price' => $product->price,
-            'image' => $product->image,
-            'inventory' => $product->inventory,
-            'active' => $product->active,
-        ];
-    }
-
-    private function storeProductImage(UploadedFile $image): string
-    {
-        return '/storage/'.$image->store('products', 'public');
-    }
-
-    private function deleteManagedImage(?string $image): void
-    {
-        if (! is_string($image) || ! str_starts_with($image, '/storage/products/')) {
-            return;
-        }
-
-        $path = substr($image, strlen('/storage/'));
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
-        }
-    }
+use App\Http\Controllers\Controller; use App\Http\Requests\StoreProductRequest; use App\Http\Requests\UpdateProductRequest; use App\Http\Requests\UpdateProductStatusRequest; use App\Repositories\ProductSheetsRepository; use App\Services\CatalogSnapshotStore; use App\Services\ProductImageStore; use App\Services\ProductSheetsException; use Illuminate\Http\JsonResponse; use Illuminate\Support\Facades\Log;
+class ProductController extends Controller {
+ public function index(CatalogSnapshotStore $catalog): JsonResponse { try{$products=array_map(fn($p)=>$this->view($p),$catalog->read());}catch(\Throwable){return $this->unavailable();}usort($products,fn($a,$b)=>$a['id']<=>$b['id']);return response()->json(['products'=>$products]); }
+ public function store(StoreProductRequest $r,ProductSheetsRepository $repository,CatalogSnapshotStore $catalog,ProductImageStore $images):JsonResponse{$path=null;try{$path=$r->hasFile('image')?$images->store($r->file('image')):null;$v=$r->validated();$p=$repository->create(['name'=>trim($v['name']),'category'=>trim($v['category']),'subcategory'=>trim($v['subcategory']),'presentation'=>trim($v['presentation']),'price_cop'=>$v['price'],'inventory'=>$v['inventory'],'active'=>(bool)$v['active'],'image_path'=>$path,'legacy_img'=>null]);}catch(ProductSheetsException $e){if($path)$images->forget($path);return $this->error($e);}catch(\Throwable){if($path)$images->forget($path);return response()->json(['message'=>'No fue posible guardar el producto.'],503);}return $this->commit($p,$catalog,false,$repository);}
+ public function update(int $id,UpdateProductRequest $r,ProductSheetsRepository $repository,CatalogSnapshotStore $catalog,ProductImageStore $images):JsonResponse{$path=null;try{$path=$r->hasFile('image')?$images->store($r->file('image')):null;$v=$r->validated();$changes=['name'=>trim($v['name']),'category'=>trim($v['category']),'subcategory'=>trim($v['subcategory']),'presentation'=>trim($v['presentation']),'price_cop'=>$v['price'],'inventory'=>$v['inventory']];if($path)$changes['image_path']=$path;$p=$repository->update($id,$v['expected_revision'],$changes);}catch(ProductSheetsException $e){$this->logProductFailure('update',$id,$e);if($path)$images->forget($path);return $this->error($e);}catch(\Throwable $e){$this->logProductFailure('update',$id,$e);if($path)$images->forget($path);return response()->json(['message'=>'No fue posible guardar el producto.'],503);}return $this->commit($p,$catalog,true,$repository);}
+ public function updateStatus(int $id,UpdateProductStatusRequest $r,ProductSheetsRepository $repository,CatalogSnapshotStore $catalog):JsonResponse{$v=$r->validated();try{$p=$repository->setActive($id,$v['expected_revision'],(bool)$v['active']);}catch(ProductSheetsException $e){return $this->error($e);}return $this->commit($p,$catalog,true,$repository);}
+ private function commit(array $p,CatalogSnapshotStore $catalog,bool $existing,ProductSheetsRepository $repository):JsonResponse{try{$already=$existing;try{foreach($catalog->read() as $item){if($item['product_id']===$p['product_id']){$already=true;break;}}}catch(\Throwable){}$catalog->patchProduct($p,$already);}catch(\Throwable){Log::warning('Product write committed but local catalog refresh failed.',['product_id'=>$p['product_id']]);return response()->json(['message'=>'El producto fue guardado, pero el catalogo local esta pendiente de sincronizacion.','write_committed'=>true,'catalog_refreshed'=>false,'sync_status'=>'pending','product'=>$this->view($p)],202);} $status='synced';try{$candidate=$repository->syncStatus();if(in_array($candidate,['synced','pending'],true))$status=$candidate;}catch(\Throwable){}return response()->json(['product'=>$this->view($p),'catalog_refreshed'=>true,'sync_status'=>$status],$status==='pending'?202:200);}
+ private function view(array $p):array{return ['id'=>$p['product_id'],'img'=>$p['legacy_img'],'category'=>$p['category'],'subcategory'=>$p['subcategory'],'name'=>$p['name'],'presentation'=>$p['presentation'],'price'=>$p['price_cop'],'image'=>$p['image_path'],'inventory'=>$p['inventory'],'active'=>$p['active'],'revision'=>$p['revision']];}
+ private function error(ProductSheetsException $e):JsonResponse{return response()->json(['message'=>$e->status()===409?'El producto cambio; actualiza el catalogo e intenta nuevamente.':'No fue posible guardar el producto.'],$e->status());}
+ private function unavailable():JsonResponse{return response()->json(['message'=>'El catalogo no esta disponible en este momento.'],503,['Retry-After'=>'60']);}
+ private function logProductFailure(string $operation,int $productId,\Throwable $e):void{$previous=$e->getPrevious();$apiStatus=null;if($previous&&method_exists($previous,'getResponse')&&$previous->getResponse())$apiStatus=$previous->getResponse()->getStatusCode();elseif($previous&&method_exists($previous,'getCode')&&$previous->getCode()>0)$apiStatus=$previous->getCode();Log::warning('Google Sheets product update failed.',['operation'=>$operation,'product_id'=>$productId,'exception_class'=>$e::class,'remote_code'=>$e instanceof ProductSheetsException?$e->remoteCode():null,'message'=>$this->sanitize($e->getMessage()),'previous_exception_class'=>$previous? $previous::class:null,'previous_message'=>$previous?$this->sanitize($previous->getMessage()):null,'google_api_status'=>$apiStatus]);}
+ private function sanitize(string $message):string{$message=preg_replace('#https?://[^\s]+#i','[REDACTED]',$message)??'';return mb_strimwidth(trim(str_replace(["\r","\n"],' ',$message)),0,500,'...')?:'unavailable';}
 }

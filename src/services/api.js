@@ -43,35 +43,51 @@ export const api = {
   // Tienda pública: continúa temporalmente usando Express.
   listProducts: () => request('/api/products'),
 
-  createOrder: async (order) => {
+  prepareWompiPayment: async ({ customer, items }, idempotencyKey) => {
+    if (!idempotencyKey) {
+      throw new Error('Se requiere una Idempotency-Key para preparar el pago.');
+    }
+
     const csrfToken = await getCsrfToken();
 
-    return request('/api/orders', {
+    return request('/api/payments/wompi/prepare', {
       method: 'POST',
       headers: {
         'X-CSRF-TOKEN': csrfToken,
+        'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify(order),
+      body: JSON.stringify({ customer, items }),
     });
   },
 
+  getWompiPaymentStatus: (statusToken) => request('/api/payments/wompi/status', {
+    headers: {
+      'X-Checkout-Status-Token': statusToken,
+    },
+  }),
+
   // Administración: autenticación nueva mediante Laravel.
-  me: () => request('/api/auth/me'),
+  me: (options = {}) => request('/api/auth/me', options),
 
-  listAdminProducts: () => request('/api/admin/products'),
+  listAdminProducts: (options = {}) => request('/api/admin/products', options),
 
-  listAdminOrders: ({ page = 1, perPage = 25 } = {}) => request(`/api/admin/orders?page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`),
+  listAdminOrders: ({ page = 1, perPage = 25, signal } = {}) => request(`/api/admin/orders?page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`, { signal }),
 
-  getAdminOrder: (id) => request(`/api/admin/orders/${encodeURIComponent(id)}`),
+  getAdminOrder: (id, options = {}) => request(`/api/admin/orders/${encodeURIComponent(id)}`, options),
+
+  updateAdminOrderStatus: async (id, status) => {
+    const csrfToken = await getCsrfToken();
+    return request(`/api/admin/orders/${encodeURIComponent(id)}/status`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ status }) });
+  },
 
   createAdminProduct: async (product) => {
     const csrfToken = await getCsrfToken();
 
-    return request('/api/admin/products', {
+    return assertProductResponse(await request('/api/admin/products', {
       method: 'POST',
       headers: { 'X-CSRF-TOKEN': csrfToken },
       body: productFormData(product),
-    });
+    }));
   },
 
   updateAdminProduct: async (id, product) => {
@@ -79,21 +95,21 @@ export const api = {
     const formData = productFormData(product);
     formData.append('_method', 'PATCH');
 
-    return request(`/api/admin/products/${id}`, {
+    return assertProductResponse(await request(`/api/admin/products/${id}`, {
       method: 'POST',
       headers: { 'X-CSRF-TOKEN': csrfToken },
       body: formData,
-    });
+    }));
   },
 
-  updateAdminProductStatus: async (id, active) => {
+  updateAdminProductStatus: async (id, active, expectedRevision) => {
     const csrfToken = await getCsrfToken();
 
-    return request(`/api/admin/products/${id}/status`, {
+    return assertProductResponse(await request(`/api/admin/products/${id}/status`, {
       method: 'PATCH',
       headers: { 'X-CSRF-TOKEN': csrfToken },
-      body: JSON.stringify({ active }),
-    });
+      body: JSON.stringify({ active, expected_revision: expectedRevision }),
+    }));
   },
 
   login: async (credentials) => {
@@ -113,35 +129,6 @@ export const api = {
     return response;
   },
 
-  forgotPassword: async (email) => {
-    const csrfToken = await getCsrfToken();
-
-    return request('/api/auth/forgot-password', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrfToken,
-      },
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  resetPassword: async ({ email, token, password, password_confirmation: passwordConfirmation }) => {
-    const csrfToken = await getCsrfToken();
-
-    return request('/api/auth/reset-password', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrfToken,
-      },
-      body: JSON.stringify({
-        email,
-        token,
-        password,
-        password_confirmation: passwordConfirmation,
-      }),
-    });
-  },
-
   logout: async () => {
     const csrfToken = await getCsrfToken();
 
@@ -157,10 +144,21 @@ export const api = {
 function productFormData(product) {
   const formData = new FormData();
 
-  ['name', 'category', 'subcategory', 'presentation', 'price'].forEach((field) => {
-    formData.append(field, product[field]);
+  ['name', 'category', 'subcategory', 'presentation', 'price', 'inventory', 'active', 'expected_revision'].forEach((field) => {
+    if (product[field] === undefined) return;
+    formData.append(field, field === 'active' ? (product[field] ? '1' : '0') : product[field]);
   });
   if (product.image instanceof File) formData.append('image', product.image);
 
   return formData;
+}
+
+function assertProductResponse(body) {
+  if (!body || typeof body !== 'object' || !body.product || typeof body.product !== 'object') {
+    const error = new Error('La respuesta del servidor no contiene el producto actualizado.');
+    error.status = 502;
+    throw error;
+  }
+
+  return body;
 }
