@@ -11,16 +11,10 @@ class EnsureAdminAuthenticated
     // Permite continuar únicamente a administradores autenticados.
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->user()) {
+        if ($request->session()->get('admin_authenticated') !== true) {
             return response()->json([
                 'message' => 'No autenticado.',
             ], 401);
-        }
-
-        if ($request->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'No tienes permisos de administrador.',
-            ], 403);
         }
 
         return $next($request);

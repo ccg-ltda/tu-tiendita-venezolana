@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import branding from '../../data/branding.json';
 import { api } from '../../services/api';
 import '../../styles/admin.css';
@@ -161,12 +161,6 @@ export function AdminLoginPage() {
                                     )}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className='admin-login-forgot-link'>
-                            <Link to='/admin/forgot-password'>
-                                ¿Olvidaste tu contraseña?
-                            </Link>
                         </div>
 
                         {error && (

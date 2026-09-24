@@ -1,49 +1,73 @@
 # Tu Tiendita Venezolana
 
-Aplicación de comercio electrónico con frontend React/Vite y backend Laravel/MySQL.
+Tu Tiendita Venezolana is a React storefront backed by Laravel. Its runtime data flow is:
 
-## Desarrollo local
+React -> Laravel -> local catalog snapshot -> Apps Script -> Google Sheets
 
-Requisitos: Node.js 22.13 o posterior, npm, PHP 8.2 o posterior, Composer y MySQL.
+Wompi handles payment checkout and sends payment events to Laravel; Laravel persists checkout state through Apps Script. MySQL, XAMPP, SQL migrations, and database seeders are not required for normal operation.
 
-Inicia el frontend:
+## Catalog readiness
+
+Google Sheets remains the source of truth. Laravel serves product listings from a private,
+validated snapshot at `storage/app/private/catalog/products.json` and its local file cache;
+product HTTP requests never wait for Apps Script.
+
+Before a new instance receives catalog traffic, create a valid snapshot:
+
+```bash
+cd backend
+php artisan products:refresh-catalog
+```
+
+Then run Laravel's scheduler in production (`php artisan schedule:run` from cron every minute,
+or `php artisan schedule:work`). It refreshes the catalog every five minutes. If a refresh
+fails, Laravel keeps serving the last valid snapshot. A missing or invalid initial snapshot
+returns a generic 503 with `Retry-After`; it is a catalog readiness failure, not a reason for a
+client request to call Apps Script.
+
+## Administrative orders readiness
+
+Administrator order lists are served from an encrypted private Laravel cache. Before a new
+instance receives administrative traffic, prewarm the first page:
+
+```bash
+cd backend
+php artisan orders:refresh-admin-cache --page=1 --per-page=25
+```
+
+The scheduler refreshes that page every minute. Entries are fresh for 60 seconds and may be
+served as a last-valid stale fallback for no more than five minutes if Apps Script is
+temporarily unavailable. Order detail is intentionally not derived from the list because it
+contains additional customer PII; prewarm a detail only when needed with
+`php artisan orders:refresh-admin-detail {orderId}`. No order data is exposed as a storage URL.
+
+## Local development
+
+Requirements: Node.js, npm, PHP 8.2 or newer, Composer, and configured Apps Script, Wompi, and administrator environment variables.
+
+Start the frontend:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Inicia Laravel desde `backend/`:
+Start Laravel from `backend/`:
 
 ```bash
 php artisan serve
 ```
 
-Vite redirige `/api` y `/storage` al backend Laravel local en `http://127.0.0.1:8000`.
-Configura `backend/.env` a partir de `backend/.env.example`, ejecuta las migraciones necesarias y crea el enlace de almacenamiento para las imágenes gestionadas por Laravel.
+Vite proxies `/api` and `/storage` to Laravel at `http://127.0.0.1:8000` during local development.
 
-## API principal
+## API
 
-- `GET /api/products`: catálogo público.
-- `POST /api/orders`: registra un pedido y descuenta inventario.
-- `POST /api/auth/login`: inicia la sesión administrativa.
-- `GET /api/auth/me`: comprueba la sesión.
-- `POST /api/auth/logout`: cierra la sesión.
-- `GET /api/admin/products`: catálogo completo, requiere sesión.
-- `GET /api/admin/orders`: lista pedidos; `GET /api/admin/orders/{id}` muestra detalle.
+- `GET /api/products`: public catalog from the local snapshot/cache.
+- `POST /api/payments/wompi/prepare`: prepares a checkout through Apps Script.
+- `GET /api/payments/wompi/status`: reads checkout status through Apps Script.
+- `POST /api/webhooks/wompi`: receives verified Wompi events.
+- `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`: administrator session endpoints.
+- `GET /api/admin/products`: complete catalog for an authenticated administrator, from the same local snapshot/cache.
+- `GET /api/admin/orders` and `GET /api/admin/orders/{id}`: authenticated order reads from the encrypted private cache; Apps Script is used only by refresh commands.
 
-## Estructura
-
-- `src/`: interfaz React.
-- `src/services/api.js`: cliente de la API Laravel.
-- `backend/`: API Laravel, migraciones y seeders MySQL.
-- `backend/database/data/products.json`: snapshot histórico para el seeder inicial de Laravel.
-- `public/assets/`: marca e imágenes legacy activas del catálogo.
-- `legacy/tu-tiendita-venezolana-FINAL.html`: referencia histórica y visual.
-- `vercel.json`: compilación estática temporal del frontend y fallback SPA; no hospeda la API Laravel.
-
-## Seguridad y pagos
-
-Laravel almacena las contraseñas como hashes y usa sesiones para el administrador. Configura credenciales administrativas mediante variables de entorno de Laravel y usa HTTPS en producción.
-
-Los pedidos se registran en MySQL. La integración de Wompi requiere su propio flujo de servidor y webhook de confirmación.
+Administrative product writes are intentionally disabled while their Sheets workflow is not implemented.

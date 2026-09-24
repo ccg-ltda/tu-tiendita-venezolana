@@ -1,10 +1,11 @@
 import branding from '../../data/branding.json';
+import { Package, Search, ShoppingBag } from 'lucide-react';
 
 export function Header({ cartCount, onCartOpen, search, onSearch }) {
   return (
     <>
       <div className='announce'>
-        📦 ENVÍOS A TODA COLOMBIA · <b>Bogotá 24h hábiles</b> · 🇻🇪 El sabor de Venezuela, más cerca de ti
+        <Package size={14} aria-hidden='true' /> ENVÍOS A TODA COLOMBIA · <b>Bogotá 24h hábiles</b> · 🇻🇪 El sabor de Venezuela, más cerca de ti
       </div>
 
       <header>
@@ -21,7 +22,7 @@ export function Header({ cartCount, onCartOpen, search, onSearch }) {
           </a>
 
           <label className='search-wrap'>
-            <span className='search-icon'>🔍</span>
+            <Search className='search-icon' size={15} aria-hidden='true' />
             <input
               value={search}
               onChange={(event) => onSearch(event.target.value)}
@@ -31,7 +32,7 @@ export function Header({ cartCount, onCartOpen, search, onSearch }) {
 
           <div className='header-actions'>
             <button className='cart-btn' onClick={onCartOpen}>
-              🛍️ Carrito <span className='cart-count'>{cartCount}</span>
+              <ShoppingBag size={18} aria-hidden='true' /> Carrito <span className='cart-count'>{cartCount}</span>
             </button>
           </div>
         </div>

@@ -14,6 +14,7 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { Toast } from './components/cart/Toast';
 import { PolicyModal } from './components/common/PolicyModal';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
+import { Building2 } from 'lucide-react';
 
 export default function App() {
   const [catalog, setCatalog] = useState([]);
@@ -131,11 +132,8 @@ export default function App() {
   });
   const addProduct = (product) => { if (!cart[product.id]) setQuantity(product.id, 1); setToastProduct(product); };
 
-  const completeOrder = async ({ customer, items }) => {
-    const result = await api.createOrder({ customer, items: items.map((item) => ({ id: item.id, qty: item.qty })) });
+  const handlePaymentConfirmed = () => {
     setCart({});
-    await loadProducts(false);
-    return result.order;
   };
 
   return (
@@ -154,9 +152,9 @@ export default function App() {
       {!loading && !catalogError && <main className='main' id='catalogo'><Sidebar category={activeCat} subcategories={subcategories} activeSub={activeSub} counts={subCounts} onSelect={(sub) => { setActiveSub(sub); setSearch(''); }} /><ProductGrid title={title} products={visibleProducts} cart={cart} onQuantity={setQuantity} onAdd={addProduct} /></main>}
       <TrustStrip />
       <Footer categories={categories} onCategory={selectCategory} onPolicy={(key) => setActivePolicy(policies[key])} />
-      <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'>🏢</span><span>Mayoristas<small>Habla con ventas</small></span></a>
+      <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
       <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      <CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onComplete={completeOrder} />
+      <CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} />
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>
