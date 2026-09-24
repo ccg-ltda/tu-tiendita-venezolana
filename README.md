@@ -50,28 +50,6 @@ php artisan products:refresh-catalog
 php artisan orders:refresh-admin-cache --page=1 --per-page=25
 ```
 
-## Variables de entorno
-
-Configure el archivo `backend/.env` a partir de `backend/.env.example`. No incluya valores reales, credenciales ni archivos de secretos en el control de versiones.
-
-Las variables propias de la integración que utiliza el código son:
-
-- `APP_KEY`
-- `APP_URL`
-- `FRONTEND_URL`
-- `APPS_SCRIPT_URL`
-- `APPS_SCRIPT_API_KEY`
-- `GOOGLE_SHEETS_SPREADSHEET_ID`
-- `WOMPI_ENVIRONMENT`
-- `WOMPI_PUBLIC_KEY`
-- `WOMPI_PRIVATE_KEY`
-- `WOMPI_INTEGRITY_SECRET`
-- `WOMPI_EVENTS_SECRET`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD_HASH`
-
-La integración directa con Google Sheets también requiere las credenciales privadas de la cuenta de servicio que usa el backend. Deben aprovisionarse fuera del repositorio.
-
 ## Desarrollo local
 
 ### Frontend
