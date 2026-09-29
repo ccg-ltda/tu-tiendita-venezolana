@@ -24,6 +24,7 @@ async function request(path, options = {}) {
     );
 
     error.status = response.status;
+    error.code = body?.code ?? null;
     error.details = body?.errors ?? null;
 
     throw error;
@@ -60,9 +61,10 @@ export const api = {
     });
   },
 
-  getWompiPaymentStatus: (statusToken) => request('/api/payments/wompi/status', {
+  getWompiPaymentStatus: (statusToken, transactionId) => request('/api/payments/wompi/status', {
     headers: {
       'X-Checkout-Status-Token': statusToken,
+      'X-Wompi-Transaction-Id': transactionId,
     },
   }),
 

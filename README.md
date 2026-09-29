@@ -1,76 +1,80 @@
 # Tu Tiendita Venezolana
 
-Aplicación de comercio electrónico con frontend en React y backend en Laravel. Su flujo principal de datos es:
+Aplicación de comercio electrónico con frontend en React y backend en Laravel. Google Sheets es la fuente principal de datos del negocio; MySQL no se usa como persistencia de negocio en el flujo actual.
+
+## Arquitectura actual
+
+El backend centraliza la integración con los servicios externos y mantiene cachés y snapshots privados para las lecturas administrativas y del catálogo.
 
 ```text
-React → Laravel → snapshot/caché local → Apps Script / Google Sheets
+Catálogo y administración de productos: React → Laravel → Google Sheets API directa
+Checkout: React → Laravel → Google Sheets API directa
+Pagos: React → Laravel → Wompi
+Eventos de pago: Wompi → webhook de Laravel → Google Sheets API directa
 ```
 
-Google Sheets es la fuente principal de datos del proyecto. El funcionamiento normal no requiere MySQL.
+`CHECKOUT_WRITER_BACKEND=direct` selecciona el writer directo de Laravel para las operaciones críticas de checkout. Apps Script sigue disponible para funciones auxiliares, lecturas y respaldo, pero sus writers críticos están protegidos o deshabilitados por `apps-script/CutoverGuard.gs` durante el cutover.
 
-## Arquitectura y funcionamiento
+## Productos
 
-### Productos
+Google Sheets es la fuente del catálogo. Laravel expone el catálogo público desde su snapshot y caché privados, de modo que el cliente no consulta directamente servicios externos en cada solicitud.
 
-El catálogo público se entrega desde un snapshot y caché privados de Laravel, por lo que las consultas del cliente no dependen directamente de Apps Script. Google Sheets sigue siendo la fuente principal de productos y Laravel cuenta con sincronización hacia esa fuente.
+El administrador puede crear, editar, activar o desactivar productos e incluir cambios de inventario. Estas escrituras se realizan desde Laravel directamente mediante la API de Google Sheets. Si una sincronización no puede completarse de inmediato, Laravel conserva la operación pendiente para reintentarla.
 
-El administrador puede crear y editar productos, modificar su inventario y activarlos o desactivarlos. Si una operación no puede sincronizarse de inmediato, el sistema conserva localmente la operación pendiente para procesarla posteriormente.
+## Checkout y pedidos
 
-### Pedidos
+El checkout sigue el flujo React → Laravel → Google Sheets API directa. Durante la preparación del checkout, Laravel reserva el pedido y descuenta el inventario correspondiente. El sistema también gestiona idempotencia, consistencia y liberación de reservas vencidas.
 
-Los pedidos se persisten mediante Apps Script y Google Sheets. El panel administrativo consume un listado desde la caché privada de Laravel, que se actualiza automáticamente mediante el scheduler. Ante fallos transitorios del servicio externo, puede mantenerse temporalmente el último estado válido.
+El listado de pedidos de administración se entrega desde una caché/snapshot privado de Laravel. Para el detalle se usa la caché disponible o se consulta únicamente el pedido solicitado. El estado operativo del pedido puede actualizarse desde el panel según las transiciones permitidas.
 
-El detalle de un pedido usa la caché cuando está disponible; si es necesario, se consulta únicamente el pedido seleccionado. El administrador puede actualizar el estado operativo de los pedidos según las transiciones permitidas por el sistema.
+## Pagos con Wompi
 
-### Pagos con Wompi
+React solicita a Laravel la preparación del pago y Laravel se integra con Wompi. Wompi envía los eventos de pago al webhook de Laravel; el webhook procesa el evento y lo registra en Google Sheets mediante la API directa. Los eventos que no se puedan persistir en el momento se sincronizan posteriormente con el scheduler.
 
-Wompi se utiliza para el checkout y el procesamiento de pagos. Laravel prepara el proceso de pago, recibe los eventos de Wompi en su webhook, procesa el estado resultante y coordina su persistencia. También existe consulta del estado de pago y manejo automático de reservas vencidas.
+## Autenticación admin
 
-### Autenticación administrativa
-
-La autenticación administrativa no depende de MySQL. Se configura con variables de entorno y Laravel administra la sesión.
+La autenticación administrativa se configura con variables de entorno (`ADMIN_EMAIL` y `ADMIN_PASSWORD_HASH`) y Laravel gestiona la sesión. No depende de MySQL.
 
 ## Requisitos
 
 - Node.js 22.13 o superior y npm.
 - PHP 8.2 o superior.
 - Composer.
-- Acceso configurado de forma privada a Google Sheets, Apps Script y Wompi.
+- Acceso privado a Google Sheets, Wompi y, cuando se usen sus funciones auxiliares o de respaldo, Apps Script.
 
 ## Preparación inicial
 
 1. Clone el repositorio.
-2. Configure los archivos `.env` necesarios sin incorporar secretos al repositorio.
+2. Configure `backend/.env` a partir de `backend/.env.example`, sin versionar secretos.
 3. Instale las dependencias del frontend y del backend.
-4. Genere el snapshot inicial del catálogo y la primera página de la caché administrativa de pedidos:
+4. Instale el archivo de credenciales de Google indicado en la sección correspondiente.
+5. Desde `backend`, genere el snapshot inicial del catálogo y una página de caché administrativa de pedidos:
 
 ```bash
-cd backend
 php artisan products:refresh-catalog
 php artisan orders:refresh-admin-cache --page=1 --per-page=25
 ```
 
 ## Variables de entorno
 
-Configure el archivo `backend/.env` a partir de `backend/.env.example`. No incluya valores reales, credenciales ni archivos de secretos en el control de versiones.
+Configure las variables del backend en `backend/.env`. No publique valores reales de secretos, claves ni contraseñas.
 
-Las variables propias de la integración que utiliza el código son:
-
-- `APP_KEY`
-- `APP_URL`
-- `FRONTEND_URL`
-- `APPS_SCRIPT_URL`
-- `APPS_SCRIPT_API_KEY`
-- `GOOGLE_SHEETS_SPREADSHEET_ID`
-- `WOMPI_ENVIRONMENT`
-- `WOMPI_PUBLIC_KEY`
-- `WOMPI_PRIVATE_KEY`
-- `WOMPI_INTEGRITY_SECRET`
-- `WOMPI_EVENTS_SECRET`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD_HASH`
-
-La integración directa con Google Sheets también requiere las credenciales privadas de la cuenta de servicio que usa el backend. Deben aprovisionarse fuera del repositorio.
+| Variable | Uso |
+| --- | --- |
+| `APP_KEY` | Clave de la aplicación Laravel. |
+| `APP_URL` | URL pública del backend Laravel. |
+| `FRONTEND_URL` | URL del frontend. |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | Identificador de la hoja de cálculo principal. |
+| `CHECKOUT_WRITER_BACKEND` | Backend del writer de checkout; el valor actual es `direct`. |
+| `APPS_SCRIPT_URL` | URL de Apps Script para funciones auxiliares, lecturas o respaldo. |
+| `APPS_SCRIPT_API_KEY` | Clave de acceso de Apps Script. |
+| `WOMPI_ENVIRONMENT` | Entorno de Wompi. |
+| `WOMPI_PUBLIC_KEY` | Clave pública de Wompi. |
+| `WOMPI_PRIVATE_KEY` | Clave privada de Wompi usada por Laravel. |
+| `WOMPI_INTEGRITY_SECRET` | Secreto de integridad de Wompi. |
+| `WOMPI_EVENTS_SECRET` | Secreto para validar eventos de Wompi. |
+| `ADMIN_EMAIL` | Correo del administrador. |
+| `ADMIN_PASSWORD_HASH` | Hash de la contraseña del administrador. |
 
 ## Desarrollo local
 
@@ -101,55 +105,71 @@ En una tercera terminal, dentro de `backend`:
 php artisan schedule:work
 ```
 
-Durante el desarrollo, `schedule:work` debe permanecer ejecutándose para que Laravel ejecute las tareas programadas, incluidas las actualizaciones del catálogo y del listado administrativo de pedidos.
+El scheduler libera reservas vencidas, sincroniza eventos de pago pendientes, actualiza el catálogo y refresca la caché administrativa de pedidos. Los comandos disponibles son:
+
+```bash
+php artisan wompi:release-expired-reservations
+php artisan wompi:sync-pending-payment-events
+php artisan products:refresh-catalog
+php artisan orders:refresh-admin-cache --page=1 --per-page=25
+```
 
 ### Webhooks de Wompi en local
 
-Cuando sea necesario recibir webhooks en el entorno local:
+Para recibir webhooks en el entorno local:
 
 ```bash
 ngrok http 8000
 ```
 
-ngrok expone temporalmente el backend local para recibir webhooks. La URL pública puede cambiar al reiniciar el túnel.
+Configure en Wompi la URL pública temporal de ngrok apuntando al endpoint `POST /api/webhooks/wompi`. La URL cambia al reiniciar el túnel.
 
 ## Google Sheets y Apps Script
 
-Google Sheets funciona como almacenamiento principal de la información del proyecto. Apps Script actúa como capa de integración para determinadas operaciones. El código fuente de Apps Script está versionado en `apps-script/`.
+Google Sheets almacena los datos de negocio. Laravel usa la API directa de Google Sheets para las escrituras críticas de checkout, los eventos de pago y las operaciones administrativas de productos.
 
-Mantenga las credenciales, secretos y la API key de Apps Script fuera del repositorio; la API key real debe configurarse de manera privada.
+Las credenciales de la cuenta de servicio deben estar en:
 
-## API
+```text
+backend/storage/app/private/google/service-account.json
+```
 
-Las rutas actuales del backend son las siguientes. Los endpoints administrativos requieren una sesión administrativa activa.
+Ese archivo no debe versionarse ni incluirse en despliegues públicos. Compártalo con la hoja de cálculo configurada en `GOOGLE_SHEETS_SPREADSHEET_ID` y aprovisiónelo de forma privada en cada entorno.
+
+El código de Apps Script se encuentra en `apps-script/`. Permanece para lecturas, funciones auxiliares y respaldo. `CutoverGuard.gs` protege los writers críticos de Apps Script durante el uso del writer directo de Laravel.
+
+## API actual
+
+Las rutas administrativas requieren una sesión de administrador activa.
 
 | Método | Ruta | Propósito |
 | --- | --- | --- |
-| `GET` | `/api/products` | Obtiene el catálogo público desde el snapshot/caché local. |
-| `POST` | `/api/payments/wompi/prepare` | Prepara un checkout de Wompi. |
+| `GET` | `/api/products` | Obtiene el catálogo público desde el snapshot/caché de Laravel. |
+| `POST` | `/api/payments/wompi/prepare` | Prepara el checkout y el pago de Wompi. |
 | `GET` | `/api/payments/wompi/status` | Consulta el estado de un pago preparado. |
 | `POST` | `/api/webhooks/wompi` | Recibe eventos de pago enviados por Wompi. |
-| `GET` | `/api/auth/csrf-token` | Obtiene el token CSRF para la sesión actual. |
+| `GET` | `/api/auth/csrf-token` | Obtiene el token CSRF de la sesión actual. |
 | `POST` | `/api/auth/login` | Inicia la sesión administrativa. |
 | `GET` | `/api/auth/me` | Devuelve la identidad de la sesión administrativa. |
 | `POST` | `/api/auth/logout` | Cierra la sesión administrativa. |
-| `GET` | `/api/admin/products` | Consulta el catálogo para administración. |
+| `GET` | `/api/admin/products` | Obtiene productos para administración. |
 | `POST` | `/api/admin/products` | Crea un producto. |
 | `PATCH` | `/api/admin/products/{productId}` | Edita un producto, incluido su inventario. |
 | `PATCH` | `/api/admin/products/{productId}/status` | Activa o desactiva un producto. |
-| `GET` | `/api/admin/orders` | Consulta el listado administrativo de pedidos. |
-| `GET` | `/api/admin/orders/{id}` | Consulta el detalle de un pedido. |
+| `GET` | `/api/admin/orders` | Obtiene el listado administrativo de pedidos desde la caché privada. |
+| `GET` | `/api/admin/orders/{id}` | Obtiene el detalle de un pedido. |
 | `PATCH` | `/api/admin/orders/{id}/status` | Actualiza el estado operativo de un pedido. |
 
-## Producción
+## Despliegue
 
-En desarrollo puede utilizarse `php artisan schedule:work`. En producción, las tareas programadas deben mantenerse ejecutándose mediante el mecanismo de procesos o tareas programadas que proporcione el servidor o hosting.
+Configure las variables de entorno y las credenciales privadas de Google en el entorno de despliegue. Establezca `CHECKOUT_WRITER_BACKEND=direct`, publique `APP_URL` y `FRONTEND_URL` con sus URLs reales y registre en Wompi el webhook `POST /api/webhooks/wompi` bajo la URL pública de Laravel.
 
-Antes de habilitar tráfico, ejecute los comandos de preparación inicial para disponer de un catálogo y un listado administrativo de pedidos actualizados.
+Mantenga el scheduler de Laravel en ejecución mediante el mecanismo de procesos o tareas programadas del hosting. Antes de atender tráfico, ejecute los comandos de preparación inicial para disponer de un catálogo y una caché administrativa actualizados.
 
 ## Estructura del proyecto
 
-- `src/`: aplicación React, vistas y servicios del frontend.
-- `backend/`: aplicación Laravel, API, comandos y tareas programadas.
-- `apps-script/`: código fuente de la integración con Google Apps Script.
+- `src/`: aplicación React y servicios del frontend.
 - `public/`: recursos estáticos del frontend.
+- `backend/`: aplicación Laravel, API, integración con Google Sheets y Wompi, comandos y tareas programadas.
+- `backend/storage/app/private/`: almacenamiento privado de Laravel, incluidas las credenciales de Google no versionables.
+- `apps-script/`: código fuente de Apps Script, incluidos los guards de cutover.

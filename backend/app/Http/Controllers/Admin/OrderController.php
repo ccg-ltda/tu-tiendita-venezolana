@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\AdminOrdersCache;
-use App\Services\AppsScriptCheckoutClient;
+use App\Services\CheckoutWriterGateway;
 use App\Services\AppsScriptCheckoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +25,7 @@ class OrderController extends Controller
         return $this->unavailable();
     }
 
-    public function show(string $order, AdminOrdersCache $cache, AppsScriptCheckoutClient $checkout): JsonResponse
+    public function show(string $order, AdminOrdersCache $cache, CheckoutWriterGateway $checkout): JsonResponse
     {
         if (! ctype_digit($order) || (int) $order < 1 || (int) $order > 2147483647) abort(404);
         $orderId = (int) $order;
@@ -51,7 +51,7 @@ class OrderController extends Controller
         return response()->json(['order' => $detail]);
     }
 
-    public function updateStatus(Request $request, string $order, AdminOrdersCache $client, AppsScriptCheckoutClient $checkout): JsonResponse
+    public function updateStatus(Request $request, string $order, AdminOrdersCache $client, CheckoutWriterGateway $checkout): JsonResponse
     {
         if (! ctype_digit($order) || (int) $order < 1 || (int) $order > 2147483647) abort(404);
         $status = $request->input('status');
