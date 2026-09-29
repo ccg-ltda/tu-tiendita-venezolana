@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\AppsScriptCheckoutClient;
+use App\Services\CheckoutWriterGateway;
 use App\Services\AppsScriptCheckoutException;
 use App\Support\Payments\WompiTransactionClient;
 use App\Support\Payments\WompiTransactionException;
@@ -15,7 +15,7 @@ class ReleaseExpiredWompiReservations extends Command
 
     protected $description = 'Safely releases expired Wompi inventory reservations.';
 
-    public function handle(AppsScriptCheckoutClient $checkout, WompiTransactionClient $wompi): int
+    public function handle(CheckoutWriterGateway $checkout, WompiTransactionClient $wompi): int
     {
         try {
             // Pull up to 50 candidates, then commit isolated batches of at most 20.

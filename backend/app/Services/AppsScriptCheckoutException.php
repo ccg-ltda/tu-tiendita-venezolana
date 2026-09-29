@@ -10,6 +10,7 @@ class AppsScriptCheckoutException extends RuntimeException
         private readonly int $status,
         private readonly ?string $remoteCode = null,
         private readonly bool $retryable = false,
+        private readonly bool $ambiguousPrepareFailure = false,
     ) {
         parent::__construct('Apps Script checkout is unavailable.');
     }
@@ -27,5 +28,10 @@ class AppsScriptCheckoutException extends RuntimeException
     public function retryable(): bool
     {
         return $this->retryable;
+    }
+
+    public function ambiguousPrepareFailure(): bool
+    {
+        return $this->ambiguousPrepareFailure;
     }
 }

@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
-use App\Services\AppsScriptCheckoutClient;
+use App\Services\CheckoutWriterGateway;
 use App\Services\AppsScriptCheckoutException;
+use App\Services\WompiPaymentEventOutboxStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,7 @@ class WompiWebhookController extends Controller
     /** @var list<string> */
     private const TRANSACTION_STATUSES = ['PENDING', 'APPROVED', 'DECLINED', 'VOIDED', 'ERROR'];
 
-    public function handle(Request $request, AppsScriptCheckoutClient $client): JsonResponse
+    public function handle(Request $request, CheckoutWriterGateway $client, WompiPaymentEventOutboxStore $outbox): JsonResponse
     {
         $eventsSecret = config('services.wompi.events_secret');
         if (! is_string($eventsSecret) || $eventsSecret === '') {
@@ -60,18 +61,23 @@ class WompiWebhookController extends Controller
             return response()->json(['error' => 'Invalid webhook payload.'], 422);
         }
 
+        $event = [
+            'id' => $transaction['id'],
+            'reference' => $transaction['reference'],
+            'status' => $transaction['status'],
+            'payment_method' => $this->paymentMethod($transaction),
+            'amount_in_cents' => $transaction['amount_in_cents'],
+            'currency' => $transaction['currency'],
+            'event_occurred_at' => $eventOccurredAt,
+        ];
+
         try {
-            $result = $client->recordPaymentEvent([
-                'id' => $transaction['id'],
-                'reference' => $transaction['reference'],
-                'status' => $transaction['status'],
-                'payment_method' => $this->paymentMethod($transaction),
-                'amount_in_cents' => $transaction['amount_in_cents'],
-                'currency' => $transaction['currency'],
-                'event_occurred_at' => $eventOccurredAt,
-            ]);
+            $result = $client->recordPaymentEvent($event);
         } catch (AppsScriptCheckoutException $exception) {
             $status = $exception->status();
+            if (in_array($status, [502, 503, 504], true)) {
+                $this->enqueueForRetry($outbox, $event, $transaction['id']);
+            }
             Log::warning('Wompi webhook could not be persisted in checkout storage.', [
                 'transaction_id' => $transaction['id'],
                 'remote_code' => $exception->remoteCode(),
@@ -80,9 +86,16 @@ class WompiWebhookController extends Controller
 
             return response()->json(['error' => $this->processingError($status)], $status);
         } catch (\Throwable) {
+            $this->enqueueForRetry($outbox, $event, $transaction['id']);
             Log::error('Wompi webhook could not be processed.');
 
             return response()->json(['error' => 'Webhook processing unavailable.'], 503);
+        }
+
+        try {
+            $outbox->remove($event['id']);
+        } catch (\Throwable) {
+            Log::error('Persisted Wompi payment event could not be removed from the outbox.', ['transaction_id' => $event['id']]);
         }
 
         Log::info('Wompi webhook processed.', [
@@ -92,6 +105,16 @@ class WompiWebhookController extends Controller
         ]);
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /** @param array{id:string,reference:string,status:string,payment_method:string,amount_in_cents:int,currency:string,event_occurred_at:string} $event */
+    private function enqueueForRetry(WompiPaymentEventOutboxStore $outbox, array $event, string $transactionId): void
+    {
+        try {
+            $outbox->enqueue($event);
+        } catch (\Throwable) {
+            Log::error('Wompi payment event could not be written to the durable outbox.', ['transaction_id' => $transactionId]);
+        }
     }
 
     private function invalidPayload(mixed $payload): bool

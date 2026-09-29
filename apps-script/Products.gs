@@ -151,6 +151,7 @@ function crearProducto_(solicitud) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return respuestaErrorProducto_('LOCK_TIMEOUT');
   try {
+    assertCriticalWritersEnabled_();
     const hoja = obtenerHojaProductos_(); validarEncabezadosProductos_(hoja);
     const rows = leerFilasProductos_(hoja), props = PropertiesService.getScriptProperties();
     const id = siguienteIdProducto_(props, rows), now = new Date().toISOString();
@@ -168,6 +169,7 @@ function actualizarProducto_(solicitud) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return respuestaErrorProducto_('LOCK_TIMEOUT');
   try {
+    assertCriticalWritersEnabled_();
     const hoja = obtenerHojaProductos_(); validarEncabezadosProductos_(hoja);
     const found = buscarProducto_(leerFilasProductos_(hoja), request.product_id); if (!found) return respuestaErrorProducto_('PRODUCT_NOT_FOUND');
     const current = normalizarProductoFila_(found.values, found.row); if (current.revision !== request.expected_revision) return respuestaErrorProducto_('REVISION_CONFLICT');
@@ -183,6 +185,7 @@ function establecerProductoActivo_(solicitud) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return respuestaErrorProducto_('LOCK_TIMEOUT');
   try {
+    assertCriticalWritersEnabled_();
     const hoja = obtenerHojaProductos_(); validarEncabezadosProductos_(hoja);
     const found = buscarProducto_(leerFilasProductos_(hoja), request.product_id); if (!found) return respuestaErrorProducto_('PRODUCT_NOT_FOUND');
     const current = normalizarProductoFila_(found.values, found.row); if (current.revision !== request.expected_revision) return respuestaErrorProducto_('REVISION_CONFLICT');

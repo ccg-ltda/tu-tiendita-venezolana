@@ -7,6 +7,9 @@
 .fab.mayorista { position: fixed; right: 18px; bottom: 18px; z-index: 70; }
 .fab small { display: block; }
 .co-field > span { display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em; font-family:'JetBrains Mono',monospace; }
+.co-field input[aria-invalid='true'] { border-color:var(--red); box-shadow:0 0 0 3px rgba(211,32,49,.1); }
+.co-field-error { display:block; margin-top:5px; color:var(--red-deep); font-size:12px; line-height:1.35; }
+.co-success .co-check { width:48px; height:48px; display:grid; place-items:center; margin:0 auto 12px; }
 .co-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .co-summary-row { display:flex; justify-content:space-between; gap:12px; font-size:12px; padding:5px 0; }
 .co-btn-next.full { width:100%; background:var(--navy); }

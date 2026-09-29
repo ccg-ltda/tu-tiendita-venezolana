@@ -4,12 +4,14 @@ namespace Tests\Feature\Payments;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use App\Services\WompiPaymentEventOutboxStore;
 use Tests\TestCase;
 
 class WompiWebhookTest extends TestCase
 {
     private const URL = 'https://apps-script.test/exec';
     private const EVENT_TIMESTAMP = 1_725_000_000_000;
+    private string $outboxPath;
 
     protected function setUp(): void
     {
@@ -20,6 +22,14 @@ class WompiWebhookTest extends TestCase
             'services.apps_script.url' => self::URL,
             'services.apps_script.api_key' => 'apps-script-test-key',
         ]);
+        $this->outboxPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.'wompi-events-'.bin2hex(random_bytes(6)).'.json';
+        $this->app->instance(WompiPaymentEventOutboxStore::class, new WompiPaymentEventOutboxStore($this->outboxPath));
+    }
+
+    protected function tearDown(): void
+    {
+        @unlink($this->outboxPath);
+        parent::tearDown();
     }
 
     public function test_millisecond_timestamp_sends_exact_utc_timestamp_to_apps_script(): void
@@ -27,6 +37,7 @@ class WompiWebhookTest extends TestCase
         Http::fake([self::URL => Http::response($this->success(), 200)]);
 
         $this->webhook($this->payload('APPROVED'))->assertOk()->assertJson(['status' => 'ok']);
+        $this->assertSame([], app(WompiPaymentEventOutboxStore::class)->all());
 
         Http::assertSent(function ($request): bool {
             $body = json_decode($request->body(), true, 512, JSON_THROW_ON_ERROR);
@@ -112,6 +123,7 @@ class WompiWebhookTest extends TestCase
         }
 
         Http::assertSentCount(5);
+        $this->assertSame([], app(WompiPaymentEventOutboxStore::class)->all());
     }
 
     public function test_replay_and_late_approved_review_are_successful(): void
@@ -128,10 +140,21 @@ class WompiWebhookTest extends TestCase
         $this->webhook($this->payload('APPROVED', transactionId: 'transaction-late'))->assertOk();
     }
 
-    public function test_apps_script_timeout_fails_closed(): void
+    public function test_apps_script_timeout_fails_closed_and_is_saved_for_retry(): void
     {
         Http::fake(fn () => throw new ConnectionException('cURL error 28: timeout'));
         $this->webhook($this->payload('PENDING'))->assertStatus(504);
+        $events = app(WompiPaymentEventOutboxStore::class)->all();
+        $this->assertCount(1, $events);
+        $this->assertSame('transaction-1', $events[0]['transaction']['id']);
+        $this->assertSame('PENDING', $events[0]['transaction']['status']);
+    }
+
+    public function test_invalid_apps_script_response_is_saved_for_retry(): void
+    {
+        Http::fake([self::URL => Http::response('not-json', 200)]);
+        $this->webhook($this->payload('APPROVED'))->assertStatus(502);
+        $this->assertCount(1, app(WompiPaymentEventOutboxStore::class)->all());
     }
 
     public function test_invalid_json_and_incomplete_apps_script_response_fail_closed(): void

@@ -15,6 +15,10 @@ Schedule::command('wompi:release-expired-reservations')
     ->everyMinute()
     ->withoutOverlapping();
 
+Schedule::command('wompi:sync-pending-payment-events')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 Schedule::command('products:refresh-catalog')
     ->everyFiveMinutes()
     ->withoutOverlapping();
