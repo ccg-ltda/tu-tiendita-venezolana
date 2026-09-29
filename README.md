@@ -55,27 +55,6 @@ php artisan products:refresh-catalog
 php artisan orders:refresh-admin-cache --page=1 --per-page=25
 ```
 
-## Variables de entorno
-
-Configure las variables del backend en `backend/.env`. No publique valores reales de secretos, claves ni contraseñas.
-
-| Variable | Uso |
-| --- | --- |
-| `APP_KEY` | Clave de la aplicación Laravel. |
-| `APP_URL` | URL pública del backend Laravel. |
-| `FRONTEND_URL` | URL del frontend. |
-| `GOOGLE_SHEETS_SPREADSHEET_ID` | Identificador de la hoja de cálculo principal. |
-| `CHECKOUT_WRITER_BACKEND` | Backend del writer de checkout; el valor actual es `direct`. |
-| `APPS_SCRIPT_URL` | URL de Apps Script para funciones auxiliares, lecturas o respaldo. |
-| `APPS_SCRIPT_API_KEY` | Clave de acceso de Apps Script. |
-| `WOMPI_ENVIRONMENT` | Entorno de Wompi. |
-| `WOMPI_PUBLIC_KEY` | Clave pública de Wompi. |
-| `WOMPI_PRIVATE_KEY` | Clave privada de Wompi usada por Laravel. |
-| `WOMPI_INTEGRITY_SECRET` | Secreto de integridad de Wompi. |
-| `WOMPI_EVENTS_SECRET` | Secreto para validar eventos de Wompi. |
-| `ADMIN_EMAIL` | Correo del administrador. |
-| `ADMIN_PASSWORD_HASH` | Hash de la contraseña del administrador. |
-
 ## Desarrollo local
 
 ### Frontend
