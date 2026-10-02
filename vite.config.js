@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Rutas absolutas: con base './' los assets se resolvían mal al servir
+  // index.html como fallback SPA en rutas anidadas (ej. /admin/login).
+  base: '/',
   server: {
     proxy: {
       // La nueva autenticación administrativa se procesa en Laravel.
