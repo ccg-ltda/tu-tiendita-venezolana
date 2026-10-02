@@ -3,8 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\AdminOrdersCache;
-use App\Services\AppsScriptCheckoutClient;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\DirectAdminOrderListService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,7 +13,7 @@ class RefreshAdminOrdersCache extends Command
 
     protected $description = 'Refreshes one encrypted private administrator order-list cache page.';
 
-    public function handle(AppsScriptCheckoutClient $client, AdminOrdersCache $cache): int
+    public function handle(DirectAdminOrderListService $orders, AdminOrdersCache $cache): int
     {
         $page = filter_var($this->option('page'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]);
         $perPage = filter_var($this->option('per-page'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100]]);
@@ -26,13 +25,8 @@ class RefreshAdminOrdersCache extends Command
 
         Log::info('admin_orders_scheduler_started', ['page' => $page, 'per_page' => $perPage]);
         try {
-            $result = $client->adminListOrders($page, $perPage);
+            $result = $orders->list($page, $perPage);
             $cache->putList($page, $perPage, $result);
-        } catch (AppsScriptCheckoutException $exception) {
-            Log::warning('Admin orders cache refresh failed.', ['page' => $page, 'per_page' => $perPage, 'status' => $exception->status()]);
-            $this->error('Admin orders cache refresh failed.');
-
-            return self::FAILURE;
         } catch (\Throwable) {
             Log::error('Admin orders cache refresh failed.', ['page' => $page, 'per_page' => $perPage]);
             $this->error('Admin orders cache refresh failed.');

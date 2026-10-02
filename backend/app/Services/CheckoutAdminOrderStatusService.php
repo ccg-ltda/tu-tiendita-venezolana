@@ -6,13 +6,13 @@ use App\Exceptions\CheckoutConsistencyException;
 use App\Exceptions\CheckoutLockTimeoutException;
 use App\Repositories\CheckoutSheetsRepository;
 
-/** Disconnected literal counterpart of actualizarEstadoPedidoAdmin_. */
+/** Direct writer for verified administrative order-status changes. */
 final class CheckoutAdminOrderStatusService
 {
-    private const STATUSES=['PENDING','PROCESSING','READY','SHIPPED','DELIVERED','CANCELLED'];
+    private const STATUSES=['PENDING','PROCESSING','READY','SHIPPED','DELIVERED'];
     private const HEADERS=['order_id','reference','status','payment_status','reservation_status','reservation_expires_at','paid_at','payment_last_event_at','checkout_idempotency_key','checkout_payload_hash','release_id','release_fingerprint','released_at','customer_name','customer_email','customer_phone','customer_document','address','extra','city','region','postal','total_cop','created_at','updated_at','revision'];
 
-    public function __construct(private readonly CheckoutLock $lock,private readonly CheckoutSheetsRepository $sheets,private readonly ?CheckoutUtcTimestamp $timestamps=null) {}
+    public function __construct(private readonly CheckoutLock $lock,private readonly CheckoutSheetsRepository $sheets,private readonly OrderNotificationOutboxStore $notifications,private readonly ?CheckoutUtcTimestamp $timestamps=null) {}
 
     /** @return array{ok:bool,data?:array{order_id:int,status:string,updated_at:string,revision:int,idempotency_replayed:bool},error?:array{code:string}} */
     public function update(mixed $request,?\DateTimeInterface $now=null): array
@@ -34,19 +34,41 @@ final class CheckoutAdminOrderStatusService
         if($matches===[])return $this->error('ORDER_NOT_FOUND');
         if(count($matches)!==1)throw new CheckoutConsistencyException;
         $row=$matches[0];$from=$row['status']??null;
-        if($from===$target)return $this->success($orderId,$from,$this->timestamp($row['updated_at']??null),$this->revision($row['revision']??null),true);
+        if($from===$target){$updatedAt=$this->timestamp($row['updated_at']??null);$revision=$this->revision($row['revision']??null);$this->enqueueStatusNotification($row);return $this->success($orderId,$from,$updatedAt,$revision,true);}
         if($from==='DELIVERED'||$from==='CANCELLED')return $this->error('INVALID_STATUS_TRANSITION');
-        if($target!=='CANCELLED'){
-            $flows=['PENDING'=>['PROCESSING'],'PROCESSING'=>['READY'],'READY'=>['SHIPPED','DELIVERED'],'SHIPPED'=>['DELIVERED']];
-            if(!is_string($from)||!in_array($target,$flows[$from]??[],true))return $this->error('INVALID_STATUS_TRANSITION');
-            if($from==='PENDING'&&($row['payment_status']??null)!=='APPROVED')return $this->error('PAYMENT_NOT_APPROVED');
-        }
+        $flows=['PENDING'=>['PROCESSING'],'PROCESSING'=>['READY'],'READY'=>['SHIPPED','DELIVERED'],'SHIPPED'=>['DELIVERED']];
+        if(!is_string($from)||!in_array($target,$flows[$from]??[],true))return $this->error('INVALID_STATUS_TRANSITION');
+        if($from==='PENDING'&&($row['payment_status']??null)!=='APPROVED')return $this->error('PAYMENT_NOT_APPROVED');
         $revision=$this->revision($row['revision']??null);$values=array_map(fn(string $field):mixed=>$row[$field],self::HEADERS);
         $values[2]=$target;$values[24]=$now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s.v\\Z');$values[25]=$revision+1;
         $after=$this->sheets->writeAdminOrderStatusAfter($row['sheet_row'],$values);
         if($this->storedOrderId($after['order_id']??null)!==$orderId||$after['status']!==$target||$this->timestamp($after['updated_at']??null)!==$values[24]||$this->revision($after['revision']??null)!==$values[25])throw new CheckoutConsistencyException;
+        // This point is after writeAdminOrderStatusAfter() has reread the final row.
+        // An outbox failure is intentionally returned to the caller without rolling
+        // back the verified Sheets status; a retry can enqueue the same key.
+        $this->enqueueStatusNotification($after);
         return $this->success($orderId,$target,$values[24],$values[25],false);
     }
+    /** @param array<string,mixed> $order */
+    private function enqueueStatusNotification(array $order): void
+    {
+        $type=['PROCESSING'=>'EN_PREPARACION','SHIPPED'=>'EN_CAMINO','DELIVERED'=>'ENTREGADO'][$order['status']??'']??null;
+        if($type===null)return;
+        $orderId=$this->notificationInteger($order['order_id']??null,1);
+        $total=$this->notificationInteger($order['total_cop']??null,0);
+        $items=array_map(fn(array $item):array=>[
+            'product_id'=>$this->notificationInteger($item['product_id']??null,1),'product_name'=>$item['product_name'],
+            'unit_price_cop'=>$this->notificationInteger($item['unit_price_cop']??null,0),'quantity'=>$this->notificationInteger($item['quantity']??null,1),
+        ],$this->sheets->readOrderItemsByOrderId($orderId));
+        $this->notifications->enqueue([
+            'notification_key'=>$type.':'.$orderId.':customer','notification_type'=>$type,'recipient_kind'=>'customer',
+            'order_id'=>$orderId,'reference'=>$order['reference'],'customer_name'=>$order['customer_name'],'customer_email'=>$order['customer_email'],'customer_phone'=>$order['customer_phone'],
+            'address'=>$order['address'],'extra'=>($order['extra']??'')!==''?$order['extra']:null,'city'=>$order['city'],'total_cop'=>$total,
+            'status'=>$order['status'],'payment_status'=>$order['payment_status'],'reservation_status'=>$order['reservation_status'],'items'=>$items,
+        ]);
+    }
+    private function notificationInteger(mixed $value,int $minimum): int
+    { if(is_int($value)){if($value<$minimum||$value>2147483647)throw new \InvalidArgumentException('Invalid notification integer.');return $value;}if(!is_string($value)||preg_match('/^(?:0|[1-9][0-9]*)$/D',$value)!==1||strlen($value)>10||(strlen($value)===10&&strcmp($value,'2147483647')>0)||(int)$value<$minimum)throw new \InvalidArgumentException('Invalid notification integer.');return (int)$value; }
     private function storedOrderId(mixed $value): ?int
     { if(is_int($value)&&$value>=1&&$value<=2147483647)return $value;if(is_string($value)&&preg_match('/^(?:0|[1-9][0-9]*)$/D',$value)===1&&strlen($value)<=10&&(strlen($value)<10||strcmp($value,'2147483647')<=0)&&(int)$value>=1)return (int)$value;return null; }
     private function revision(mixed $value): int

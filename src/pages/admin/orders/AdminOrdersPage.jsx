@@ -50,7 +50,7 @@ export function AdminOrdersPage() {
   const visibleOrders = orders.filter((order) => (!search || `${order.reference} ${order.customer_name}`.toLowerCase().includes(search.toLowerCase())) && (!orderStatus || order.status === orderStatus) && (!paymentStatus || order.payment_status === paymentStatus));
 
   const changeStatus = async (status) => {
-    if (!selectedOrder || (status === 'CANCELLED' && !window.confirm('¿Cancelar este pedido?'))) return;
+    if (!selectedOrder) return;
     const next = await updateOrderStatus(selectedOrder.id, status);
     setSelectedOrder(next);
   };
@@ -67,7 +67,7 @@ export function AdminOrdersPage() {
 
       <div className='admin-orders-filters'>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder='Buscar referencia o cliente' />
-        <select value={orderStatus} onChange={(event) => setOrderStatus(event.target.value)}><option value=''>Todos los estados</option><option value='PENDING'>Pendiente</option><option value='PROCESSING'>En preparación</option><option value='READY'>Listo</option><option value='SHIPPED'>Enviado</option><option value='DELIVERED'>Entregado</option><option value='CANCELLED'>Cancelado</option></select>
+        <select value={orderStatus} onChange={(event) => setOrderStatus(event.target.value)}><option value=''>Todos los estados</option><option value='PENDING'>Pendiente</option><option value='PROCESSING'>En preparación</option><option value='READY'>Listo</option><option value='SHIPPED'>Enviado</option><option value='DELIVERED'>Entregado</option></select>
         <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}><option value=''>Todos los pagos</option><option value='APPROVED'>Pagado</option><option value='PENDING'>Pendiente</option><option value='DECLINED'>Rechazado</option><option value='VOIDED'>Anulado</option><option value='ERROR'>Error</option></select>
       </div>
 

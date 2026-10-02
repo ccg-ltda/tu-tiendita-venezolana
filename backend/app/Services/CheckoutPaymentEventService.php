@@ -7,13 +7,10 @@ use App\Exceptions\CheckoutLockTimeoutException;
 use App\Exceptions\CheckoutPaymentEventException;
 use App\Repositories\CheckoutSheetsRepository;
 
-/**
- * Disconnected direct counterpart of registrarEventoPago_. No controller,
- * route, scheduler, or production binding invokes this service.
- */
+/** Direct payment-event writer used by the direct CheckoutWriterGateway path. */
 final class CheckoutPaymentEventService
 {
-    public function __construct(private readonly CheckoutLock $lock,private readonly CheckoutSheetsRepository $sheets,private readonly CheckoutIdSequenceStore $sequences,private readonly ?CheckoutPaymentEventNormalizer $normalizer=null,private readonly ?CheckoutPaymentEventStateValidator $validator=null,private readonly ?CheckoutPaymentEventPlanner $planner=null) {}
+    public function __construct(private readonly CheckoutLock $lock,private readonly CheckoutSheetsRepository $sheets,private readonly CheckoutIdSequenceStore $sequences,private readonly OrderNotificationOutboxStore $notifications,private readonly ?CheckoutPaymentEventNormalizer $normalizer=null,private readonly ?CheckoutPaymentEventStateValidator $validator=null,private readonly ?CheckoutPaymentEventPlanner $planner=null) {}
     /** @return array{ok:bool,data?:array<string,mixed>,error?:array{code:string}} */
     public function record(mixed $request,?\DateTimeInterface $now=null):array
     {
@@ -34,7 +31,7 @@ final class CheckoutPaymentEventService
     {
         $plan=($this->planner??new CheckoutPaymentEventPlanner)->plan($order,$event,$state,$now);$max=0;foreach($payments as $row)$max=max($max,$row['payment_attempt_id']);$id=$this->sequences->reservePaymentAttemptId($max);
         $payment=[$id,$order['order_id'],$event['id'],$event['status'],$event['payment_method'],$event['amount_in_cents'],'COP',$now,$event['event_occurred_at']];$this->sheets->appendPaymentEventRow($payment);if($plan['changed'])$this->sheets->writePaymentEventOrderRow($order['sheet_row'],$this->orderValues($plan['values']));
-        $this->verify($order['sheet_row'],$id,$payment,$this->orderValues($plan['values']),$validator);return $this->success($order['order_id'],$id,false,$plan);
+        $this->verify($order['sheet_row'],$id,$payment,$this->orderValues($plan['values']),$validator);$this->enqueueOrderCreated($plan);return $this->success($order['order_id'],$id,false,$plan);
     }
     private function existingPayment(array $order,array $state,array $payment,array $event,string $now,CheckoutPaymentEventStateValidator $validator):array
     {
@@ -42,8 +39,8 @@ final class CheckoutPaymentEventService
         if($event['event_occurred_ms']<$priorMs)return $this->success($order['order_id'],$id,false,['event_result'=>'STALE_IGNORED','values'=>$order]);
         $same=$event['event_occurred_ms']===$priorMs;$sameFields=$payment['status']===$event['status']&&trim((string)($payment['payment_method']??''))===$event['payment_method']&&$payment['amount_in_cents']===$event['amount_in_cents']&&$payment['currency']===$event['currency'];if($same&&!$sameFields)throw new CheckoutPaymentEventException('CONSISTENCY_UNCERTAIN');
         $plan=($this->planner??new CheckoutPaymentEventPlanner)->plan($order,$event,$state,$now);
-        if($same){if($plan['changed'])$this->sheets->writePaymentEventOrderRow($order['sheet_row'],$this->orderValues($plan['values']));$this->verify($order['sheet_row'],$id,$this->paymentValues($payment),$this->orderValues($plan['values']),$validator);return $this->success($order['order_id'],$id,true,$plan);}
-        $effective=$payment['status']==='APPROVED'&&$event['status']!=='APPROVED'?array_replace($event,['status'=>'APPROVED','payment_method'=>$payment['payment_method']]):$event;$values=[$id,$order['order_id'],$event['id'],$effective['status'],$effective['payment_method'],$event['amount_in_cents'],'COP',$payment['created_at'],$event['event_occurred_at']];$this->sheets->writePaymentEventRow($payment['sheet_row'],$values);if($plan['changed'])$this->sheets->writePaymentEventOrderRow($order['sheet_row'],$this->orderValues($plan['values']));$this->verify($order['sheet_row'],$id,$values,$this->orderValues($plan['values']),$validator);return $this->success($order['order_id'],$id,false,$plan);
+        if($same){if($plan['changed'])$this->sheets->writePaymentEventOrderRow($order['sheet_row'],$this->orderValues($plan['values']));$this->verify($order['sheet_row'],$id,$this->paymentValues($payment),$this->orderValues($plan['values']),$validator);$this->enqueueOrderCreated($plan);return $this->success($order['order_id'],$id,true,$plan);}
+        $effective=$payment['status']==='APPROVED'&&$event['status']!=='APPROVED'?array_replace($event,['status'=>'APPROVED','payment_method'=>$payment['payment_method']]):$event;$values=[$id,$order['order_id'],$event['id'],$effective['status'],$effective['payment_method'],$event['amount_in_cents'],'COP',$payment['created_at'],$event['event_occurred_at']];$this->sheets->writePaymentEventRow($payment['sheet_row'],$values);if($plan['changed'])$this->sheets->writePaymentEventOrderRow($order['sheet_row'],$this->orderValues($plan['values']));$this->verify($order['sheet_row'],$id,$values,$this->orderValues($plan['values']),$validator);$this->enqueueOrderCreated($plan);return $this->success($order['order_id'],$id,false,$plan);
     }
     private function verify(int $orderRow,int $paymentId,array $expectedPayment,array $expectedOrder,CheckoutPaymentEventStateValidator $validator):void
     { $order=null;foreach($this->sheets->readOrdersForPaymentEvent() as $row)if($row['sheet_row']===$orderRow)$order=$row;$payment=null;foreach($this->sheets->readPaymentsForPaymentEvent() as $row)if(($row['payment_attempt_id']??null)===$paymentId)$payment=$row;if($order===null||$payment===null||!$this->same($payment,$expectedPayment,self::PAYMENT_HEADERS)||!$this->same($order,$expectedOrder,self::ORDER_HEADERS))throw new CheckoutPaymentEventException('CONSISTENCY_UNCERTAIN');$validator->payments($this->sheets->readPaymentsForPaymentEvent()); }
@@ -52,6 +49,32 @@ final class CheckoutPaymentEventService
     private function paymentValues(array $payment):array{return array_map(fn($key)=>$payment[$key],self::PAYMENT_HEADERS);}
     private function orderValues(array $order):array{return array_map(fn($key)=>$order[$key],self::ORDER_HEADERS);}
     private function same(array $actual,array $expected,array $headers):bool{foreach($headers as $i=>$header)if(($actual[$header]??null)!==$expected[$i])return false;return true;}
+    /**
+     * Sheets has already been read back successfully by verify() when this runs.
+     * Deliberately let an outbox write failure escape: the webhook can retry the
+     * exact Wompi event, while the confirmed Sheets order is never rolled back.
+     *
+     * @param array{event_result:string,values:array<string,mixed>} $plan
+     */
+    private function enqueueOrderCreated(array $plan):void
+    {
+        $order=$plan['values'];
+        if(($plan['event_result']??null)!=='APPROVED'||($order['status']??null)!=='PENDING'||($order['payment_status']??null)!=='APPROVED'||($order['reservation_status']??null)!=='CONSUMED')return;
+        $items=array_map(static fn(array $item):array=>[
+            'product_id'=>$item['product_id'],'product_name'=>$item['product_name'],'unit_price_cop'=>$item['unit_price_cop'],'quantity'=>$item['quantity'],
+        ],$this->sheets->readOrderItemsByOrderId($order['order_id']));
+        foreach(['customer','admin'] as $recipient){
+            $this->notifications->enqueue([
+                'notification_key'=>'PEDIDO_CREADO:'.$order['order_id'].':'.$recipient,
+                'notification_type'=>'PEDIDO_CREADO','recipient_kind'=>$recipient,
+                'order_id'=>$order['order_id'],'reference'=>$order['reference'],
+                'customer_name'=>$order['customer_name'],'customer_email'=>$order['customer_email'],'customer_phone'=>$order['customer_phone'],
+                'address'=>$order['address'],'extra'=>($order['extra']??'')!==''?$order['extra']:null,'city'=>$order['city'],
+                'total_cop'=>$order['total_cop'],'status'=>$order['status'],'payment_status'=>$order['payment_status'],
+                'reservation_status'=>$order['reservation_status'],'items'=>$items,
+            ]);
+        }
+    }
     private function success(int $orderId,int $paymentId,bool $replayed,array $plan):array{$v=$plan['values'];return ['ok'=>true,'data'=>['order_id'=>$orderId,'payment_attempt_id'=>$paymentId,'payment_event_replayed'=>$replayed,'event_result'=>$plan['event_result'],'status'=>(string)$v['status'],'payment_status'=>(string)$v['payment_status'],'reservation_status'=>(string)$v['reservation_status'],'revision'=>$v['revision']]];}
     private function error(string $code):array{return ['ok'=>false,'error'=>['code'=>$code]];}
 }

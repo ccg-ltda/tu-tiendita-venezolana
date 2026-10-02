@@ -63,3 +63,44 @@
 .admin-order-status.order-ready{background:#e7f6f2;color:#17685d}
 .admin-order-status.order-shipped{background:#fff0dc;color:#9a5a12}
 .admin-order-status.order-cancelled{background:#fde8e9;color:#9d1b29}
+
+.admin-order-detail-header-actions{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.admin-order-detail-print{border:1px solid var(--al);border-radius:6px;background:transparent;color:var(--an);min-height:32px;padding:0 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
+.admin-order-detail-print:hover{border-color:var(--an);background:#edf0f7}
+@media(max-width:420px){.admin-order-detail-header{gap:10px;padding:16px}.admin-order-detail-header h2{font-size:21px}.admin-order-detail-header-actions{gap:6px}.admin-order-detail-print{padding:0 8px;font-size:10px}}
+
+/* Printable order receipt: intentionally separate from the administrative drawer UI. */
+.order-print-summary{display:none}
+
+@media print{
+  @page{margin:12mm}
+  html,body,#root{margin:0!important;padding:0!important;background:#fff!important}
+  body *{visibility:hidden!important}
+  body #root,body .admin-order-detail-layer,body .admin-order-detail-drawer{display:block!important;visibility:visible!important}
+  body .admin-order-detail-layer{position:static!important;inset:auto!important;width:auto!important;height:auto!important;background:transparent!important}
+  body .admin-order-detail-drawer{position:static!important;width:auto!important;height:auto!important;min-height:0!important;box-shadow:none!important;background:transparent!important;animation:none!important}
+  body .order-print-summary,body .order-print-summary *{visibility:visible!important}
+  body .order-print-summary{position:absolute!important;top:0!important;left:0!important;display:block!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;background:#fff!important;color:#171717!important;font-family:Arial,Helvetica,sans-serif!important;font-size:10pt!important;line-height:1.35!important}
+  .order-receipt-header{display:flex!important;align-items:center!important;gap:12px!important;padding:0 0 12px!important;border-bottom:2px solid #222!important}
+  .order-receipt-header img{width:52px!important;height:52px!important;object-fit:contain!important}
+  .order-receipt-header strong{display:block!important;margin:0 0 3px!important;font-size:12pt!important;font-weight:700!important}
+  .order-receipt-header h1{margin:0!important;font-size:16pt!important;letter-spacing:.04em!important;line-height:1.15!important}
+  .order-receipt-summary{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px 24px!important;margin:13px 0!important;padding:0 0 12px!important;border-bottom:1px solid #777!important}
+  .order-receipt-summary div,.order-receipt-details div{min-width:0!important}
+  .order-print-summary dt{margin:0 0 2px!important;color:#333!important;font-size:8pt!important;font-weight:700!important;letter-spacing:.04em!important;text-transform:uppercase!important}
+  .order-print-summary dd{margin:0!important;color:#111!important;overflow-wrap:anywhere!important}
+  .order-receipt-section{margin:13px 0!important}
+  .order-receipt-section h2{margin:0 0 7px!important;padding-bottom:4px!important;border-bottom:1px solid #999!important;font-size:10pt!important;text-transform:uppercase!important}
+  .order-receipt-details{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px 24px!important;margin:0!important}
+  .order-receipt-details .order-receipt-address{grid-column:1 / -1!important}
+  .order-receipt-details--status{grid-template-columns:1fr 1fr!important}
+  .order-receipt-items{width:100%!important;margin:16px 0 0!important;border-collapse:collapse!important;font-size:9pt!important}
+  .order-receipt-items th,.order-receipt-items td{padding:7px 6px!important;border:1px solid #777!important;color:#111!important;text-align:left!important;vertical-align:top!important}
+  .order-receipt-items th{background:#f3f3f3!important;font-size:8pt!important;font-weight:700!important;text-transform:uppercase!important}
+  .order-receipt-items th:nth-child(n+2),.order-receipt-items td:nth-child(n+2){text-align:right!important;white-space:nowrap!important}
+  .order-receipt-items th:first-child,.order-receipt-items td:first-child{width:46%!important}
+  .order-receipt-total{display:flex!important;justify-content:flex-end!important;align-items:baseline!important;gap:28px!important;margin-top:10px!important;padding:9px 6px!important;border-top:2px solid #222!important;border-bottom:2px solid #222!important;font-size:13pt!important;font-weight:700!important}
+  .order-receipt-total strong{font-size:15pt!important}
+  .order-receipt-footer{margin:18px 0 0!important;color:#444!important;font-size:9pt!important;text-align:center!important}
+  .order-receipt-section,.order-receipt-items tr,.order-receipt-total{break-inside:avoid!important;page-break-inside:avoid!important}
+}

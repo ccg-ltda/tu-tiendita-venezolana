@@ -4,7 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Contracts\GoogleSheetsValuesClient;
 use App\Repositories\CheckoutSheetsRepository;
-use App\Services\{AppsScriptCheckoutClient,CheckoutAdminOrderStatusService,CheckoutDirectPreparationService,CheckoutExpiredReservationReleaseService,CheckoutIdSequenceStore,CheckoutJournalStore,CheckoutLock,CheckoutPaymentEventService,CheckoutPaymentEventNormalizer,CheckoutPaymentEventPlanner,CheckoutPaymentEventStateValidator,CheckoutPayloadCanonicalizer,CheckoutRecoveryService,CheckoutReferenceGenerator,CheckoutReleaseCandidateReader,CheckoutReleaseFingerprint,CheckoutReleaseJournalStore,CheckoutReservationPlanner,CheckoutReservationWriter,CheckoutUtcTimestamp,CheckoutWriterGateway};
+use App\Services\{AppsScriptCheckoutClient,CheckoutAdminOrderStatusService,CheckoutDirectPreparationService,CheckoutExpiredReservationReleaseService,CheckoutIdSequenceStore,CheckoutJournalStore,CheckoutLock,CheckoutPaymentEventService,CheckoutPaymentEventNormalizer,CheckoutPaymentEventPlanner,CheckoutPaymentEventStateValidator,CheckoutPayloadCanonicalizer,CheckoutRecoveryService,CheckoutReferenceGenerator,CheckoutReleaseCandidateReader,CheckoutReleaseFingerprint,CheckoutReleaseJournalStore,CheckoutReservationPlanner,CheckoutReservationWriter,CheckoutUtcTimestamp,CheckoutWriterGateway,OrderNotificationOutboxStore};
 use Tests\TestCase;
 
 final class CheckoutWriterGatewayDirectTest extends TestCase
@@ -31,9 +31,9 @@ final class CheckoutWriterGatewayDirectTest extends TestCase
         $client=new class($tables) implements GoogleSheetsValuesClient {public function __construct(public array $tables){}public function getValues(string $range):array{return [];}public function batchGetValues(array $ranges):array{return array_map(function($range){$sheet=strtok($range,'!');return str_ends_with($range,'1:1')?[$this->tables[$sheet][0]]:$this->tables[$sheet];},$ranges);}public function updateValues(string $range,array $values):array{preg_match('/^([^!]+)!A(\d+):/',$range,$m);$this->tables[$m[1]][(int)$m[2]-1]=$values[0];return [];}public function appendValues(string $range,array $values):array{$sheet=strtok($range,'!');foreach($values as $value)$this->tables[$sheet][]=$value;return [];}public function batchUpdateValues(array $data):array{return [];}};
         $repo=new CheckoutSheetsRepository($client);$lock=new CheckoutLock;$journal=new CheckoutJournalStore($this->directory.'/journal');$sequence=new CheckoutIdSequenceStore($this->directory.'/sequences.json');$canonical=new CheckoutPayloadCanonicalizer;
         $prepare=new CheckoutDirectPreparationService($lock,$canonical,$journal,new CheckoutRecoveryService($lock,$journal,$repo),new CheckoutReservationPlanner($repo,$canonical,new CheckoutReferenceGenerator,$sequence),new CheckoutReservationWriter($lock,$journal,$repo),$repo);
-        $payment=new CheckoutPaymentEventService(new CheckoutLock,$repo,$sequence,new CheckoutPaymentEventNormalizer,new CheckoutPaymentEventStateValidator,new CheckoutPaymentEventPlanner);
+        $payment=new CheckoutPaymentEventService(new CheckoutLock,$repo,$sequence,new OrderNotificationOutboxStore($this->directory.'/notifications.json'),new CheckoutPaymentEventNormalizer,new CheckoutPaymentEventStateValidator,new CheckoutPaymentEventPlanner);
         $reader=new CheckoutReleaseCandidateReader($repo,new CheckoutUtcTimestamp);$release=new CheckoutExpiredReservationReleaseService(new CheckoutLock,$repo,new CheckoutReleaseJournalStore($this->directory.'/release'),new CheckoutReleaseFingerprint,new CheckoutUtcTimestamp);
-        return new CheckoutWriterGateway(new AppsScriptCheckoutClient,$prepare,$payment,$reader,$release,new CheckoutAdminOrderStatusService(new CheckoutLock,$repo,new CheckoutUtcTimestamp),$repo);
+        return new CheckoutWriterGateway(new AppsScriptCheckoutClient,$prepare,$payment,$reader,$release,new CheckoutAdminOrderStatusService(new CheckoutLock,$repo,new OrderNotificationOutboxStore($this->directory.'/admin-notifications.json'),new CheckoutUtcTimestamp),$repo);
     }
     private function tables(bool $expired=false): array
     {

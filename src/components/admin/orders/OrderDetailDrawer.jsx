@@ -2,6 +2,7 @@ import { formatCurrency, formatDate, orderStatusClass, orderStatusLabel, payment
 
 export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus }) {
   const nextAction = order && ({ PENDING: order.payment_status === 'APPROVED' ? ['PROCESSING', 'Iniciar preparación'] : null, PROCESSING: ['READY', 'Marcar como listo'], READY: ['SHIPPED', 'Marcar como enviado'], SHIPPED: ['DELIVERED', 'Marcar como entregado'] }[order.status]);
+  const deliveryType = order?.delivery_type || order?.shipping_type || order?.delivery_method;
   return (
     <div className='admin-order-detail-layer' role='presentation'>
       <button type='button' className='admin-order-detail-backdrop' aria-label='Cerrar detalle del pedido' onClick={onClose} />
@@ -11,7 +12,10 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
             <p className='admin-eyebrow'>Pedido</p>
             <h2>Detalle del pedido</h2>
           </div>
-          <button type='button' className='admin-order-detail-close' onClick={onClose} aria-label='Cerrar'>×</button>
+          <div className='admin-order-detail-header-actions'>
+            {!loading && !error && order && <button type='button' className='admin-order-detail-print' onClick={() => window.print()}>Imprimir resumen</button>}
+            <button type='button' className='admin-order-detail-close' onClick={onClose} aria-label='Cerrar'>×</button>
+          </div>
         </header>
 
         <div className='admin-order-detail-content'>
@@ -51,7 +55,6 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                 {order.status === 'PENDING' && order.payment_status !== 'APPROVED' && <p className='admin-order-detail-state'>El pedido no puede procesarse hasta que el pago esté aprobado.</p>}
                 {nextAction && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus(nextAction[0])}>{nextAction[1]}</button>}
                 {order.status === 'READY' && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus('DELIVERED')}>Marcar como entregado</button>}
-                {!['DELIVERED', 'CANCELLED'].includes(order.status) && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus('CANCELLED')}>Cancelar pedido</button>}
               </section>
               <section className='admin-order-detail-section'>
                 <h3>Entrega</h3>
@@ -80,6 +83,60 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
             </>
           )}
         </div>
+
+        {!loading && !error && order && (
+          <article className='order-print-summary' aria-label='Recibo de pedido'>
+            <header className='order-receipt-header'>
+              <img src='/assets/logo.png' alt='Tu Tiendita Venezolana' />
+              <div>
+                <strong>Tu Tiendita Venezolana</strong>
+                <h1>RECIBO DE PEDIDO</h1>
+              </div>
+            </header>
+
+            <dl className='order-receipt-summary'>
+              <div><dt>Referencia</dt><dd>{order.reference}</dd></div>
+              <div><dt>Fecha</dt><dd>{formatDate(order.created_at)}</dd></div>
+            </dl>
+
+            <section className='order-receipt-section'>
+              <h2>Datos del cliente</h2>
+              <dl className='order-receipt-details'>
+                <div><dt>Nombre</dt><dd>{order.customer_name}</dd></div>
+                <div><dt>Teléfono</dt><dd>{order.customer_phone}</dd></div>
+                {order.customer_email && <div><dt>Correo</dt><dd>{order.customer_email}</dd></div>}
+                <div className='order-receipt-address'><dt>Dirección</dt><dd>{order.address}{order.extra ? ` · ${order.extra}` : ''}</dd></div>
+                <div><dt>Ciudad / región</dt><dd>{[order.city, order.region].filter(Boolean).join(' · ')}</dd></div>
+                {deliveryType && <div><dt>Tipo de entrega</dt><dd>{deliveryType}</dd></div>}
+              </dl>
+            </section>
+
+            <section className='order-receipt-section'>
+              <h2>Estado del pedido</h2>
+              <dl className='order-receipt-details order-receipt-details--status'>
+                <div><dt>Pago</dt><dd>{paymentStatusLabel(order.payment_status)}</dd></div>
+                <div><dt>Pedido</dt><dd>{orderStatusLabel(order.status)}</dd></div>
+              </dl>
+            </section>
+
+            <table className='order-receipt-items'>
+              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
+              <tbody>
+                {order.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.product_name}</td>
+                    <td>{item.quantity}</td>
+                    <td>{formatCurrency(item.unit_price)}</td>
+                    <td>{formatCurrency(Number(item.unit_price) * Number(item.quantity))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className='order-receipt-total'><span>TOTAL</span><strong>{formatCurrency(order.total)}</strong></div>
+            <p className='order-receipt-footer'>Gracias por tu compra en Tu Tiendita Venezolana.</p>
+          </article>
+        )}
       </aside>
     </div>
   );

@@ -153,7 +153,7 @@ class AppsScriptCheckoutClient
     /** @return array{order_id: int, status: string, updated_at: string, revision: int, idempotency_replayed: bool} */
     public function adminUpdateOrderStatus(int $orderId, string $status): array
     {
-        if ($orderId < 1 || $orderId > 2147483647 || !in_array($status, ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'CANCELLED'], true)) {
+        if ($orderId < 1 || $orderId > 2147483647 || !in_array($status, ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED'], true)) {
             throw new AppsScriptCheckoutException(400);
         }
 
@@ -161,7 +161,7 @@ class AppsScriptCheckoutClient
 
         if (
             !is_array($data) || !$this->integer($data['order_id'] ?? null, 1, 2147483647)
-            || !in_array($data['status'] ?? null, ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'CANCELLED'], true)
+            || !in_array($data['status'] ?? null, ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED'], true)
             || !$this->timestamp($data['updated_at'] ?? null)
             || !$this->integer($data['revision'] ?? null, 1, 2147483647)
             || !is_bool($data['idempotency_replayed'] ?? null)

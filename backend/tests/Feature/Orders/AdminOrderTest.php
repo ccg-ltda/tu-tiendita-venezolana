@@ -2,20 +2,54 @@
 
 namespace Tests\Feature\Orders;
 
+use App\Contracts\GoogleSheetsValuesClient;
+use App\Repositories\CheckoutSheetsRepository;
 use App\Services\AdminOrdersCache;
+use App\Services\AppsScriptCheckoutClient;
+use App\Services\AppsScriptCheckoutException;
+use App\Services\CheckoutAdminOrderStatusService;
+use App\Services\CheckoutDirectPreparationService;
+use App\Services\CheckoutExpiredReservationReleaseService;
+use App\Services\CheckoutLock;
+use App\Services\CheckoutPaymentEventService;
+use App\Services\CheckoutReleaseCandidateReader;
+use App\Services\CheckoutUtcTimestamp;
+use App\Services\CheckoutWriterGateway;
+use App\Services\OrderNotificationOutboxStore;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AdminOrderTest extends TestCase
 {
     private AdminOrdersCache $cache;
 
+    private string $testStoragePath;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->testStoragePath = sys_get_temp_dir().DIRECTORY_SEPARATOR.'ttv-admin-orders-'.bin2hex(random_bytes(8));
+        app()->useStoragePath($this->testStoragePath);
+
+        // This feature suite must never share the developer's file cache.
+        config(['cache.default' => 'array']);
+        app()->forgetInstance('cache');
+        Cache::clearResolvedInstance('cache');
+        Cache::flush();
+        Http::fake();
+
         $this->cache = app(AdminOrdersCache::class);
-        $this->cache->forgetList(1, 25);
-        $this->cache->forgetDetail(42);
+    }
+
+    protected function tearDown(): void
+    {
+        File::deleteDirectory($this->testStoragePath);
+
+        parent::tearDown();
     }
 
     public function test_unauthenticated_requests_are_rejected_without_upstream(): void
@@ -68,16 +102,20 @@ class AdminOrderTest extends TestCase
     public function test_missing_detail_is_loaded_once_and_then_served_from_cache(): void
     {
         $detail = $this->detail();
-        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
-        Http::fake(function ($request) use ($detail) {
-            $this->assertSame('admin_get_order', $request->data()['action']);
+        $this->useAppsScriptAdministrativeGateway(new class($detail) extends AppsScriptCheckoutClient {
+            public function __construct(private readonly array $detail) {}
 
-            return Http::response(['ok' => true, 'data' => ['order' => $detail]], 200);
+            public function adminGetOrder(int $orderId): array
+            {
+                if ($orderId !== 42) throw new \LogicException('Unexpected order lookup.');
+
+                return $this->detail;
+            }
         });
 
         $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
         $this->assertSame($detail, $this->cache->detail(42)['data']);
-        Http::assertSentCount(1);
+        Http::assertNothingSent();
 
         Http::fake();
         $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertOk()->assertExactJson(['order' => $detail]);
@@ -88,12 +126,16 @@ class AdminOrderTest extends TestCase
     {
         $list = $this->listData();
         $this->cache->putList(1, 25, $list);
-        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
-        Http::fake(['https://script.example/exec' => Http::response('temporary upstream failure', 503)]);
+        $this->useAppsScriptAdministrativeGateway(new class extends AppsScriptCheckoutClient {
+            public function adminGetOrder(int $orderId): array
+            {
+                throw new AppsScriptCheckoutException(503);
+            }
+        });
 
         $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders/42')->assertStatus(503);
         $this->withSession(['admin_authenticated' => true])->getJson('/api/admin/orders')->assertOk()->assertExactJson($list);
-        Http::assertSentCount(3);
+        Http::assertNothingSent();
     }
 
     public function test_refresh_lock_returns_callback_result(): void
@@ -103,43 +145,30 @@ class AdminOrderTest extends TestCase
 
     public function test_scheduler_refreshes_list_without_precaching_each_detail(): void
     {
-        config()->set('services.apps_script.url', 'https://script.example/exec');
-        config()->set('services.apps_script.api_key', 'test-key');
-        Http::fake(function ($request) {
-            $payload = $request->data();
-            if ($payload['action'] === 'admin_list_orders') return Http::response(['ok' => true, 'data' => $this->listData()], 200);
-            $this->fail('The list refresh must not request individual order details.');
-        });
+        $this->useDirectListRepository([$this->orderRow('PENDING', 'APPROVED')]);
 
         $this->artisan('orders:refresh-admin-cache')->assertSuccessful();
         $this->assertNotNull($this->cache->list(1, 25));
         $this->assertNull($this->cache->detail(42));
-        Http::assertSentCount(1);
+        Http::assertNothingSent();
     }
 
     public function test_scheduler_failure_preserves_existing_cache(): void
     {
         $data = $this->listData();
         $this->cache->putList(1, 25, $data);
-        config()->set('services.apps_script.url', 'https://script.example/exec');
-        config()->set('services.apps_script.api_key', 'test-key');
-        Http::fake(['https://script.example/exec' => Http::response([], 503)]);
+        $this->useFailingDirectListRepository();
         $this->artisan('orders:refresh-admin-cache')->assertFailed();
         $this->assertSame($data, $this->cache->list(1, 25)['data']);
     }
 
-    /** @dataProvider statusTransitions */
+    #[DataProvider('statusTransitions')]
     public function test_operational_status_transitions_are_validated(string $from, string $payment, string $target, int $expectedStatus): void
     {
-        config(['services.apps_script.url' => 'https://script.example/exec', 'services.apps_script.api_key' => 'test-key']);
-        Http::fake(function ($request) use ($from, $payment, $target) {
-            $data = $request->data();
-            if ($data['action'] === 'admin_get_order') return Http::response(['ok' => true, 'data' => ['order' => $this->detail(42, $from, $payment)]], 200);
-            return Http::response(['ok' => true, 'data' => ['order_id' => 42, 'status' => $target, 'updated_at' => '2026-09-21T13:05:20.000Z', 'revision' => 2, 'idempotency_replayed' => false]], 200);
-        });
+        $this->useDirectAdministrativeGateway($from, $payment);
 
         $this->withSession(['admin_authenticated' => true])->patchJson('/api/admin/orders/42/status', ['status' => $target])->assertStatus($expectedStatus);
-        Http::assertSentCount($expectedStatus === 200 ? 2 : 1);
+        Http::assertNothingSent();
     }
 
     public static function statusTransitions(): array
@@ -155,6 +184,136 @@ class AdminOrderTest extends TestCase
             'delivered final' => ['DELIVERED', 'APPROVED', 'PROCESSING', 422],
             'cancelled final' => ['CANCELLED', 'APPROVED', 'PROCESSING', 422],
         ];
+    }
+
+    public function test_approved_order_cannot_be_cancelled_through_the_administrative_endpoint(): void
+    {
+        $this->useDirectAdministrativeGateway('PENDING', 'APPROVED');
+
+        $this->withSession(['admin_authenticated' => true])
+            ->patchJson('/api/admin/orders/42/status', ['status' => 'CANCELLED'])
+            ->assertStatus(422)
+            ->assertJson(['message' => 'Estado de pedido inválido.']);
+        Http::assertNothingSent();
+    }
+
+    /** @param list<list<mixed>> $orders */
+    private function useDirectListRepository(array $orders): void
+    {
+        $tables = ['Pedidos' => [[
+            'order_id','reference','status','payment_status','reservation_status','reservation_expires_at','paid_at','payment_last_event_at','checkout_idempotency_key','checkout_payload_hash','release_id','release_fingerprint','released_at','customer_name','customer_email','customer_phone','customer_document','address','extra','city','region','postal','total_cop','created_at','updated_at','revision',
+        ], ...$orders]];
+        $client = new class($tables) implements GoogleSheetsValuesClient {
+            public function __construct(public array $tables) {}
+            public function getValues(string $range): array { return []; }
+            public function batchGetValues(array $ranges): array { return array_map(fn (string $range): array => str_ends_with($range, '1:1') ? [$this->tables['Pedidos'][0]] : $this->tables['Pedidos'], $ranges); }
+            public function updateValues(string $range, array $values): array { throw new \LogicException('Read only.'); }
+            public function appendValues(string $range, array $values): array { throw new \LogicException('Read only.'); }
+            public function batchUpdateValues(array $data): array { throw new \LogicException('Read only.'); }
+        };
+        app()->instance(CheckoutSheetsRepository::class, new CheckoutSheetsRepository($client));
+    }
+
+    private function useFailingDirectListRepository(): void
+    {
+        $client = new class implements GoogleSheetsValuesClient {
+            public function getValues(string $range): array { throw new \RuntimeException('Direct Sheets read failed.'); }
+            public function batchGetValues(array $ranges): array { throw new \RuntimeException('Direct Sheets read failed.'); }
+            public function updateValues(string $range, array $values): array { throw new \LogicException('Read only.'); }
+            public function appendValues(string $range, array $values): array { throw new \LogicException('Read only.'); }
+            public function batchUpdateValues(array $data): array { throw new \LogicException('Read only.'); }
+        };
+        app()->instance(CheckoutSheetsRepository::class, new CheckoutSheetsRepository($client));
+    }
+
+    private function useDirectAdministrativeGateway(string $status, string $paymentStatus): void
+    {
+        config(['checkout.writer_backend' => 'direct']);
+
+        $client = new class($this->orderRow($status, $paymentStatus)) implements GoogleSheetsValuesClient {
+            /** @var array<string, list<list<mixed>>> */
+            public array $tables;
+
+            /** @param list<mixed> $order */
+            public function __construct(array $order)
+            {
+                $this->tables = [
+                    'Pedidos' => [
+                        ['order_id','reference','status','payment_status','reservation_status','reservation_expires_at','paid_at','payment_last_event_at','checkout_idempotency_key','checkout_payload_hash','release_id','release_fingerprint','released_at','customer_name','customer_email','customer_phone','customer_document','address','extra','city','region','postal','total_cop','created_at','updated_at','revision'],
+                        $order,
+                    ],
+                    'PedidoItems' => [
+                        ['order_item_id','order_id','product_id','product_name','unit_price_cop','quantity','created_at'],
+                        [9,42,193,'Producto historico',19500,1,'2026-09-21T13:04:20.000Z'],
+                    ],
+                    'Pagos' => [['payment_attempt_id','order_id','wompi_transaction_id','status','payment_method','amount_in_cents','currency','created_at','updated_at']],
+                ];
+            }
+
+            public function getValues(string $range): array { return []; }
+
+            public function batchGetValues(array $ranges): array
+            {
+                return array_map(function (string $range): array {
+                    $sheet = explode('!', $range, 2)[0];
+
+                    return str_ends_with($range, '1:1') ? [$this->tables[$sheet][0]] : $this->tables[$sheet];
+                }, $ranges);
+            }
+
+            public function updateValues(string $range, array $values): array
+            {
+                preg_match('/^Pedidos!A(\d+):Z\d+$/', $range, $matches);
+                if ($matches === []) throw new \LogicException('Unexpected direct Sheets write.');
+                $this->tables['Pedidos'][(int) $matches[1] - 1] = $values[0];
+
+                return [];
+            }
+
+            public function appendValues(string $range, array $values): array { throw new \LogicException('Unexpected append.'); }
+
+            public function batchUpdateValues(array $data): array { throw new \LogicException('Unexpected batch update.'); }
+        };
+
+        $sheets = new CheckoutSheetsRepository($client);
+        $admin = new CheckoutAdminOrderStatusService(new CheckoutLock, $sheets, new OrderNotificationOutboxStore($this->testStoragePath.'/direct-notifications.json'), new CheckoutUtcTimestamp);
+        app()->instance(CheckoutWriterGateway::class, new CheckoutWriterGateway(
+            app(AppsScriptCheckoutClient::class),
+            app(CheckoutDirectPreparationService::class),
+            app(CheckoutPaymentEventService::class),
+            app(CheckoutReleaseCandidateReader::class),
+            app(CheckoutExpiredReservationReleaseService::class),
+            $admin,
+            $sheets,
+        ));
+    }
+
+    private function useAppsScriptAdministrativeGateway(AppsScriptCheckoutClient $client): void
+    {
+        $this->useAppsScriptClient($client);
+        app()->instance(CheckoutWriterGateway::class, new CheckoutWriterGateway(
+            $client,
+            app(CheckoutDirectPreparationService::class),
+            app(CheckoutPaymentEventService::class),
+            app(CheckoutReleaseCandidateReader::class),
+            app(CheckoutExpiredReservationReleaseService::class),
+            app(CheckoutAdminOrderStatusService::class),
+            app(CheckoutSheetsRepository::class),
+        ));
+    }
+
+    private function useAppsScriptClient(AppsScriptCheckoutClient $client): void
+    {
+        config(['checkout.writer_backend' => 'apps_script']);
+        app()->instance(AppsScriptCheckoutClient::class, $client);
+    }
+
+    /** @return list<mixed> */
+    private function orderRow(string $status, string $paymentStatus): array
+    {
+        $approved = $paymentStatus === 'APPROVED';
+
+        return [42,'TTV-ADMIN-42',$status,$paymentStatus,$approved ? 'CONSUMED' : 'ACTIVE','2026-09-21T14:04:20.000Z',$approved ? '2026-09-21T13:04:20.000Z' : '',$approved ? '2026-09-21T13:04:20.000Z' : '','11111111-1111-4111-8111-111111111111',str_repeat('a',64),'','','','Cliente de Prueba','cliente@example.test','3000000000','1000000000','Direccion de prueba','','Bogota','Bogota D.C.','',19500,'2026-09-21T13:04:20.000Z','2026-09-21T13:04:20.000Z',1];
     }
 
     private function listData(): array

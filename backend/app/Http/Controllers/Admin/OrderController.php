@@ -72,13 +72,12 @@ class OrderController extends Controller
         return response()->json(['order' => $next]);
     }
 
-    private const STATUSES = ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    private const STATUSES = ['PENDING', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED'];
 
     private function assertTransition(string $from, string $paymentStatus, string $to): void
     {
         if ($from === $to) return;
         if ($from === 'DELIVERED' || $from === 'CANCELLED') throw new AppsScriptCheckoutException(422, 'INVALID_STATUS_TRANSITION');
-        if ($to === 'CANCELLED') return;
         $allowed = ['PENDING' => ['PROCESSING'], 'PROCESSING' => ['READY'], 'READY' => ['SHIPPED', 'DELIVERED'], 'SHIPPED' => ['DELIVERED']];
         if (! in_array($to, $allowed[$from] ?? [], true)) throw new AppsScriptCheckoutException(422, 'INVALID_STATUS_TRANSITION');
         if ($from === 'PENDING' && $to === 'PROCESSING' && $paymentStatus !== 'APPROVED') throw new AppsScriptCheckoutException(422, 'PAYMENT_NOT_APPROVED');
