@@ -7,6 +7,7 @@ use App\Repositories\CheckoutSheetsRepository;
 use App\Services\CheckoutAdminOrderStatusService;
 use App\Services\CheckoutLock;
 use App\Services\CheckoutUtcTimestamp;
+use App\Services\OrderNotificationOutboxStore;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
@@ -14,6 +15,12 @@ final class CheckoutAdminOrderStatusServiceTest extends TestCase
 {
     private const T0='2026-09-27T10:00:00.000Z';
     private const T1='2026-09-27T10:10:00.000Z';
+    private string $outboxPath;
+
+    protected function setUp(): void
+    { parent::setUp();$this->outboxPath=sys_get_temp_dir().DIRECTORY_SEPARATOR.'admin-status-notifications-'.bin2hex(random_bytes(5)).'.json'; }
+    protected function tearDown(): void
+    { @unlink($this->outboxPath);@unlink($this->outboxPath.'-blocked');parent::tearDown(); }
 
     public function test_replay_has_zero_writes_and_preserves_revision_and_updated_at(): void
     {
@@ -28,6 +35,37 @@ final class CheckoutAdminOrderStatusServiceTest extends TestCase
         [$service,$client]=$this->service($this->order('PENDING','APPROVED','CONSUMED'));
         $result=$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));
         $this->assertTrue($result['ok']);$this->assertSame('PROCESSING',$result['data']['status']);$this->assertSame(2,$result['data']['revision']);$this->assertSame(1,$client->writes);
+    }
+    public function test_processing_creates_one_preparation_notification_and_replay_does_not_duplicate_it(): void
+    {
+        [$service,,,$outbox]=$this->service($this->order('PENDING','APPROVED','CONSUMED'));
+        $result=$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));
+        $this->assertTrue($result['ok']);$this->assertSame('EN_PREPARACION',$outbox->all()[0]['notification_type']);$this->assertSame('EN_PREPARACION:7:customer',$outbox->all()[0]['notification_key']);
+        [$replayService]=$this->service($this->order('PROCESSING','APPROVED','CONSUMED'));
+        $replay=$replayService->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));
+        $this->assertTrue($replay['data']['idempotency_replayed']);$this->assertCount(1,$outbox->all());
+    }
+    public function test_processing_notification_normalizes_canonical_numeric_strings_from_sheets(): void
+    {
+        $order=$this->order('PENDING','APPROVED','CONSUMED');$order[0]='7';$order[22]='5000';$order[25]='1';
+        [$service,$client,, $outbox]=$this->service($order);
+        $client->tables['PedidoItems'][1]=['1','7','1','Producto','5000','1',self::T0];
+        $result=$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));
+        $entry=$outbox->all()[0];
+        $this->assertTrue($result['ok']);$this->assertSame(7,$entry['order_id']);$this->assertSame(5000,$entry['total_cop']);
+        $this->assertSame(['product_id'=>1,'product_name'=>'Producto','unit_price_cop'=>5000,'quantity'=>1],$entry['items'][0]);
+    }
+    public function test_ready_does_not_create_a_notification(): void
+    {
+        [$service,,,$outbox]=$this->service($this->order('PROCESSING','APPROVED','CONSUMED'));
+        $this->assertTrue($service->update(['order_id'=>7,'status'=>'READY'],new \DateTimeImmutable(self::T1))['ok']);$this->assertSame([],$outbox->all());
+    }
+    public function test_shipped_and_delivered_create_their_respective_notifications(): void
+    {
+        foreach([['READY','SHIPPED','EN_CAMINO'],['SHIPPED','DELIVERED','ENTREGADO']] as [$from,$target,$type]){
+            @unlink($this->outboxPath);[$service,,,$outbox]=$this->service($this->order($from,'APPROVED','CONSUMED'));
+            $this->assertTrue($service->update(['order_id'=>7,'status'=>$target],new \DateTimeImmutable(self::T1))['ok']);$this->assertCount(1,$outbox->all());$this->assertSame($type,$outbox->all()[0]['notification_type']);
+        }
     }
     public function test_authoritative_normal_transitions_and_ready_shortcut_pass(): void
     {
@@ -44,11 +82,25 @@ final class CheckoutAdminOrderStatusServiceTest extends TestCase
             $this->assertSame('INVALID_STATUS_TRANSITION',$service->update(['order_id'=>7,'status'=>$to],new \DateTimeImmutable(self::T1))['error']['code']);$this->assertSame(0,$client->writes);
         }
     }
-    public function test_cancel_is_allowed_from_a_non_terminal_state(): void
+    public function test_rejected_or_failed_status_write_does_not_enqueue_notification(): void
+    {
+        [$service,,,$outbox]=$this->service($this->order('PENDING','APPROVED','CONSUMED'));
+        $this->assertSame('INVALID_STATUS_TRANSITION',$service->update(['order_id'=>7,'status'=>'SHIPPED'],new \DateTimeImmutable(self::T1))['error']['code']);$this->assertSame([],$outbox->all());
+        [$repository,$client]=$this->repository($this->order('PENDING','APPROVED','CONSUMED'));$client->corruptStatusAfterWrite=true;$service=new CheckoutAdminOrderStatusService(new CheckoutLock,$repository,new OrderNotificationOutboxStore($this->outboxPath),new CheckoutUtcTimestamp);
+        $this->assertSame('CONSISTENCY_UNCERTAIN',$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1))['error']['code']);$this->assertSame([],$outbox->all());
+    }
+    public function test_outbox_failure_happens_after_verified_status_persistence_without_rollback(): void
+    {
+        $blocked=$this->outboxPath.'-blocked';file_put_contents($blocked,'not a directory');[$repository,$client]=$this->repository($this->order('PENDING','APPROVED','CONSUMED'));
+        $service=new CheckoutAdminOrderStatusService(new CheckoutLock,$repository,new OrderNotificationOutboxStore($blocked.'/outbox.json'),new CheckoutUtcTimestamp);
+        $result=$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));
+        $this->assertSame('INTERNAL_ERROR',$result['error']['code']);$this->assertSame('PROCESSING',$client->tables['Pedidos'][1][2]);$this->assertSame(2,$client->tables['Pedidos'][1][25]);
+    }
+    public function test_cancel_is_rejected_as_an_invalid_administrative_target_without_writes(): void
     {
         [$service,$client]=$this->service($this->order('PROCESSING','APPROVED','CONSUMED'));
         $result=$service->update(['order_id'=>7,'status'=>'CANCELLED'],new \DateTimeImmutable(self::T1));
-        $this->assertTrue($result['ok']);$this->assertSame('CANCELLED',$result['data']['status']);$this->assertSame(2,$result['data']['revision']);$this->assertSame(1,$client->writes);
+        $this->assertFalse($result['ok']);$this->assertSame('INVALID_REQUEST',$result['error']['code']);$this->assertSame(0,$client->writes);
     }
     public function test_transition_preserves_every_non_admin_field(): void
     {
@@ -74,9 +126,12 @@ final class CheckoutAdminOrderStatusServiceTest extends TestCase
     }
     public function test_post_write_verification_normalizes_expected_and_reread_stored_integers(): void
     {
-        $values=$this->order('PENDING','APPROVED','CONSUMED');$values[0]='52';$values[22]='24000';$values[25]='3';[$repository,$client]=$this->repository($values);$client->normalizeStoredOrderIntegersOnWrite=true;
+        $values=$this->order('PENDING','APPROVED','CONSUMED');$values[0]='59';$values[22]='24000';$values[25]='3';[$repository,$client]=$this->repository($values);$client->normalizeStoredOrderIntegersOnWrite=true;
         $after=$repository->writeAdminOrderStatusAfter(2,$values);
-        $this->assertSame(1,$client->writes);$this->assertSame(52,$after['order_id']);$this->assertSame(24000,$after['total_cop']);$this->assertSame(3,$after['revision']);
+        $sent=$client->lastUpdateValues[0];
+        $this->assertSame(1,$client->writes);$this->assertSame(59,$sent[0]);$this->assertSame(24000,$sent[22]);$this->assertSame(3,$sent[25]);
+        foreach($values as $index=>$value)if(!in_array($index,[0,22,25],true))$this->assertSame($value,$sent[$index]);
+        $this->assertSame(59,$after['order_id']);$this->assertSame(24000,$after['total_cop']);$this->assertSame(3,$after['revision']);
     }
     public function test_post_write_verification_rejects_invalid_expected_stored_integer_before_write(): void
     {
@@ -89,17 +144,18 @@ final class CheckoutAdminOrderStatusServiceTest extends TestCase
         try{$result=$service->update(['order_id'=>7,'status'=>'PROCESSING'],new \DateTimeImmutable(self::T1));}finally{$held->release();}
         $this->assertSame('LOCK_TIMEOUT',$result['error']['code']);$this->assertSame(0,$client->writes);
     }
-    /** @return array{0:CheckoutAdminOrderStatusService,1:object} */
+    /** @return array{0:CheckoutAdminOrderStatusService,1:object,2:CheckoutSheetsRepository,3:OrderNotificationOutboxStore} */
     private function service(array $order,array $extra=[]): array
     {
         [$repository,$client]=$this->repository($order,$extra);
-        return [new CheckoutAdminOrderStatusService(new CheckoutLock,$repository,new CheckoutUtcTimestamp),$client];
+        $outbox=new OrderNotificationOutboxStore($this->outboxPath);
+        return [new CheckoutAdminOrderStatusService(new CheckoutLock,$repository,$outbox,new CheckoutUtcTimestamp),$client,$repository,$outbox];
     }
     /** @return array{0:CheckoutSheetsRepository,1:object} */
     private function repository(array $order,array $extra=[]): array
     {
-        $tables=['Pedidos'=>[self::headers(),$order,...$extra]];
-        $client=new class($tables) implements GoogleSheetsValuesClient {public int $writes=0;public bool $normalizeStoredOrderIntegersOnWrite=false;public $beforeRead=null;public function __construct(public array $tables){}public function getValues(string $range):array{return [];}public function batchGetValues(array $ranges):array{if($this->beforeRead){$callback=$this->beforeRead;$this->beforeRead=null;$callback();}return array_map(function(string $range):array{$sheet=explode('!',$range,2)[0];return str_ends_with($range,'1:1')?[$this->tables[$sheet][0]]:$this->tables[$sheet];},$ranges);}public function updateValues(string $range,array $values):array{$this->writes++;preg_match('/^Pedidos!A(\d+):/',$range,$m);$row=$values[0];if($this->normalizeStoredOrderIntegersOnWrite)foreach([0,22,25] as $index)$row[$index]=(int)$row[$index];$this->tables['Pedidos'][(int)$m[1]-1]=$row;return [];}public function appendValues(string $range,array $values):array{throw new \LogicException('No append.');}public function batchUpdateValues(array $data):array{throw new \LogicException('No batch update.');}};
+        $tables=['Pedidos'=>[self::headers(),$order,...$extra],'PedidoItems'=>[['order_item_id','order_id','product_id','product_name','unit_price_cop','quantity','created_at'],[1,7,1,'Producto',5000,1,self::T0]]];
+        $client=new class($tables) implements GoogleSheetsValuesClient {public int $writes=0;public array $lastUpdateValues=[];public bool $normalizeStoredOrderIntegersOnWrite=false;public bool $corruptStatusAfterWrite=false;public $beforeRead=null;public function __construct(public array $tables){}public function getValues(string $range):array{return [];}public function batchGetValues(array $ranges):array{if($this->beforeRead){$callback=$this->beforeRead;$this->beforeRead=null;$callback();}return array_map(function(string $range):array{$sheet=explode('!',$range,2)[0];return str_ends_with($range,'1:1')?[$this->tables[$sheet][0]]:$this->tables[$sheet];},$ranges);}public function updateValues(string $range,array $values):array{$this->writes++;$this->lastUpdateValues=$values;preg_match('/^Pedidos!A(\d+):/',$range,$m);$row=$values[0];if($this->normalizeStoredOrderIntegersOnWrite)foreach([0,22,25] as $index)$row[$index]=(int)$row[$index];if($this->corruptStatusAfterWrite)$row[2]='PENDING';$this->tables['Pedidos'][(int)$m[1]-1]=$row;return [];}public function appendValues(string $range,array $values):array{throw new \LogicException('No append.');}public function batchUpdateValues(array $data):array{throw new \LogicException('No batch update.');}};
         return [new CheckoutSheetsRepository($client),$client];
     }
     /** @return list<string> */

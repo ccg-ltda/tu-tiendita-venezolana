@@ -203,6 +203,7 @@ final class CheckoutSheetsRepository
     {
         $this->validRow($rowNumber);$this->validValues($values,self::ORDERS_HEADERS);$expectedIntegers=[];
         foreach(['order_id'=>1,'total_cop'=>0,'revision'=>1] as $field=>$minimum){$expectedIntegers[$field]=$this->storedPaymentEventInteger($values[array_search($field,self::ORDERS_HEADERS,true)],$minimum);}
+        foreach($expectedIntegers as $field=>$value)$values[array_search($field,self::ORDERS_HEADERS,true)]=$value;
         $this->sheets->updateValues('Pedidos!A'.$rowNumber.':Z'.$rowNumber,[$values]);
         $matches=array_values(array_filter($this->readOrdersForAdminStatus(),fn(array $row):bool=>$row['sheet_row']===$rowNumber));
         if(count($matches)!==1)throw new CheckoutConsistencyException;

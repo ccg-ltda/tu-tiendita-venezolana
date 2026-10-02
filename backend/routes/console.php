@@ -31,6 +31,10 @@ Schedule::command('orders:refresh-admin-cache --page=1 --per-page=25')
     ->everyMinute()
     ->withoutOverlapping(5);
 
+Schedule::command('orders:send-pending-notifications')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 Artisan::command('apps-script:test-connection', function (): int {
     $url = config('services.apps_script.url');
     $apiKey = config('services.apps_script.api_key');

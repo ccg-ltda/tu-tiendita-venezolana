@@ -1,8 +1,9 @@
 async function request(path, options = {}) {
+  const API_URL = import.meta.env.VITE_API_URL || '';
   const { headers = {}, ...fetchOptions } = options;
   const isFormData = fetchOptions.body instanceof FormData;
 
-  const response = await fetch(path, {
+  const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
     ...fetchOptions,
     headers: {
@@ -32,6 +33,8 @@ async function request(path, options = {}) {
 
   return body;
 }
+
+
 
 // Obtiene el token CSRF correspondiente a la sesión actual.
 async function getCsrfToken() {

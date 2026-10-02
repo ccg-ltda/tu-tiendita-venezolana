@@ -48,6 +48,10 @@ return [
         'api_key' => env('APPS_SCRIPT_API_KEY'),
     ],
 
+    'order_notifications' => [
+        'admin_email' => env('ORDER_NOTIFICATION_EMAIL'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
