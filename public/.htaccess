@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Si la petición corresponde a un archivo o directorio real (assets, imágenes,
+  # favicon.ico, etc.), sírvelo tal cual.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Cualquier otra ruta (/admin/login, /admin, /products, /cart, etc.) es
+  # manejada por React Router: servir siempre index.html.
+  RewriteRule ^ index.html [L]
+</IfModule>
