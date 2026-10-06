@@ -31,7 +31,7 @@ final class OrderNotificationDeliveryService
         }
     }
 
-    /** @param array<string,mixed> $entry @return array{0:string,1:OrderCreatedCustomerMail|OrderCreatedAdminMail|OrderPreparingCustomerMail|OrderShippedCustomerMail|OrderDeliveredCustomerMail} */
+    /** @param array<string,mixed> $entry @return array{0:string|list<string>,1:OrderCreatedCustomerMail|OrderCreatedAdminMail|OrderPreparingCustomerMail|OrderShippedCustomerMail|OrderDeliveredCustomerMail} */
     private function mailFor(array $entry): array
     {
         $type = $entry['notification_type'] ?? null;
@@ -43,10 +43,10 @@ final class OrderNotificationDeliveryService
             return [$recipient, new OrderCreatedCustomerMail($entry)];
         }
         if ($type === 'PEDIDO_CREADO' && $kind === 'admin') {
-            $recipient = config('services.order_notifications.admin_email');
-            if (! $this->validEmail($recipient)) throw new \InvalidArgumentException('Order notification admin email is unavailable.');
+            $recipients = $this->adminRecipients(config('services.order_notifications.admin_email'));
+            if ($recipients === []) throw new \InvalidArgumentException('Order notification admin email is unavailable.');
 
-            return [$recipient, new OrderCreatedAdminMail($entry)];
+            return [$recipients, new OrderCreatedAdminMail($entry)];
         }
         if (in_array($type, ['EN_PREPARACION', 'EN_CAMINO', 'ENTREGADO'], true)) {
             if ($kind !== 'customer') throw new \InvalidArgumentException('Operational order notifications require a customer recipient.');
@@ -85,5 +85,25 @@ final class OrderNotificationDeliveryService
     private function validEmail(mixed $email): bool
     {
         return is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /** @return list<string> */
+    private function adminRecipients(mixed $configuredRecipients): array
+    {
+        if (!is_string($configuredRecipients)) return [];
+
+        $recipients = [];
+        $seen = [];
+        foreach (explode(',', $configuredRecipients) as $recipient) {
+            $recipient = trim($recipient);
+            if ($recipient === '' || !$this->validEmail($recipient)) continue;
+
+            $key = strtolower($recipient);
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $recipients[] = $recipient;
+        }
+
+        return $recipients;
     }
 }
