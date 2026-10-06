@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\CatalogSnapshotException;
 use App\Services\CatalogSnapshotStore;
+use App\Services\CatalogPromotionSnapshotService;
 use App\Repositories\ProductSheetsRepository;
 use App\Services\ProductSheetsException;
 use App\Services\ProductOutboxStore;
@@ -16,7 +17,7 @@ class RefreshCatalog extends Command
     protected $signature = 'products:refresh-catalog';
     protected $description = 'Fetches the product catalog and safely refreshes the local snapshot.';
 
-    public function handle(ProductSheetsRepository $products, CatalogSnapshotStore $snapshot, ProductOutboxStore $outbox): int
+    public function handle(ProductSheetsRepository $products, CatalogPromotionSnapshotService $promotionSnapshot, ProductOutboxStore $outbox): int
     {
         try {
             $freshProducts = $products->all();
@@ -30,14 +31,12 @@ class RefreshCatalog extends Command
             }
             $freshProducts = array_values($byId);
             usort($freshProducts, static fn (array $a, array $b): int => $a['product_id'] <=> $b['product_id']);
-            $document = $snapshot->writeAtomically($freshProducts);
-            $snapshot->replaceCache($document['products']);
+            $refreshed = $promotionSnapshot->refresh($freshProducts);
 
             Log::info('Catalog snapshot refreshed.', [
-                'product_count' => $document['product_count'],
-                'generated_at' => $document['generated_at'],
+                'product_count' => count($refreshed),
             ]);
-            $this->info("Catalog refreshed: {$document['product_count']} products.");
+            $this->info('Catalog refreshed: '.count($refreshed).' products.');
 
             return self::SUCCESS;
         } catch (ProductSheetsException $exception) {

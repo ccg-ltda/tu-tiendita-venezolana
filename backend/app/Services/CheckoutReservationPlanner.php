@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Data\CheckoutReservationPlan;
 use App\Exceptions\CheckoutConsistencyException;
 use App\Exceptions\CheckoutReservationPlanningException;
+use App\Promotions\ProductPromotionPriceResolver;
+use App\Promotions\PromotionContractException;
 use App\Repositories\CheckoutSheetsRepository;
 use DateTimeInterface;
 
@@ -14,6 +16,8 @@ final class CheckoutReservationPlanner
 
     public function __construct(
         private readonly CheckoutSheetsRepository $sheets,
+        private readonly GoogleSheetsPromotionStore $promotions,
+        private readonly ProductPromotionPriceResolver $prices,
         private readonly CheckoutPayloadCanonicalizer $canonicalizer,
         private readonly CheckoutReferenceGenerator $references,
         private readonly CheckoutIdSequenceStore $sequences,
@@ -28,6 +32,7 @@ final class CheckoutReservationPlanner
         if ($existing !== null) return $this->replay($existing, $customer, $canonical, $now);
 
         $products = $this->sheets->readProducts();
+        $promotions = $this->promotionsByProductId();
         $orderItems = $this->sheets->readOrderItems();
         $payments = $this->sheets->readPayments();
         $this->sequences->initializeFromMaxima($this->maximum($orders, 'order_id'), $this->maximum($orderItems, 'order_item_id'), $this->maximum($payments, 'payment_attempt_id'));
@@ -44,11 +49,12 @@ final class CheckoutReservationPlanner
             if (! $product['active']) throw new CheckoutReservationPlanningException('PRODUCT_INACTIVE');
             if ($product['price_cop'] < 1) throw new CheckoutReservationPlanningException('INVALID_PRODUCT_PRICE');
             if ($product['inventory'] < $item['quantity']) throw new CheckoutReservationPlanningException('INSUFFICIENT_STOCK');
-            $lineTotal = $product['price_cop'] * $item['quantity'];
+            $unitPrice = $this->effectivePrice($product['price_cop'], $promotions[$product['product_id']] ?? null, $now);
+            $lineTotal = $unitPrice * $item['quantity'];
             if ($lineTotal > PHP_INT_MAX - $total) throw new CheckoutReservationPlanningException('INVALID_REQUEST');
             $total += $lineTotal;
             $inventory[]=['product_id'=>$product['product_id'],'row_number'=>$product['sheet_row'],'inventory_before'=>$product['inventory'],'inventory_after'=>$product['inventory']-$item['quantity'],'revision_before'=>$product['revision'],'revision_after'=>$product['revision']+1];
-            $itemRows[] = [$firstItemId+$index,$orderId,$product['product_id'],$product['name'],$product['price_cop'],$item['quantity'],$createdAt];
+            $itemRows[] = [$firstItemId+$index,$orderId,$product['product_id'],$product['name'],$unitPrice,$item['quantity'],$createdAt];
         }
         $orderValues = [$orderId,$reference,'PENDING','PENDING','ACTIVE',$expiresAt,'','',$idempotencyKey,$canonical['payload_hash'],'','','',$customer['name'],$customer['email'],$customer['phone'],$customer['document'],$customer['address'],$customer['extra'] ?? '',$customer['city'],$customer['region'],$customer['postal'] ?? '',$total,$createdAt,$createdAt,1];
         $orderRow = $orders === [] ? 2 : max(array_column($orders, 'sheet_row')) + 1;
@@ -73,4 +79,49 @@ final class CheckoutReservationPlanner
     { if (! is_string($value)) throw new CheckoutConsistencyException; try { return (float) (new \DateTimeImmutable($value))->format('U.u') <= (float) $now->format('U.u'); } catch (\Throwable) { throw new CheckoutConsistencyException; } }
     private function timestamp(DateTimeInterface $time): string
     { return \DateTimeImmutable::createFromInterface($time)->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s.v\\Z'); }
+
+    /** @return array<int,array{product_id:int,active:bool,discount_type:'percent'|'fixed',discount_value:int,starts_at:string|null,ends_at:string|null,updated_at:string,revision:int}> */
+    private function promotionsByProductId(): array
+    {
+        try {
+            $byProductId = [];
+            foreach ($this->promotions->all() as $promotion) {
+                $byProductId[$promotion['product_id']] = $promotion;
+            }
+
+            return $byProductId;
+        } catch (ProductSheetsException $exception) {
+            if (in_array($exception->remoteCode(), [
+                'PROMOTIONS_SHEET_MISSING_OR_EMPTY',
+                'INVALID_PROMOTIONS_HEADERS',
+                'INVALID_PROMOTIONS_DATA',
+                'DUPLICATE_PROMOTION_PRODUCT_ID',
+            ], true)) {
+                throw new CheckoutReservationPlanningException('INVALID_PROMOTION_CONTRACT');
+            }
+
+            throw new CheckoutReservationPlanningException('PROMOTIONS_UNAVAILABLE');
+        }
+    }
+
+    /** @param array{product_id:int,active:bool,discount_type:'percent'|'fixed',discount_value:int,starts_at:string|null,ends_at:string|null,updated_at:string,revision:int}|null $promotion */
+    private function effectivePrice(int $basePriceCop, ?array $promotion, DateTimeInterface $now): int
+    {
+        if ($promotion === null) {
+            return $basePriceCop;
+        }
+
+        try {
+            // Validate price-relative constraints even if this promotion is not currently applicable.
+            $this->prices->resolve($basePriceCop, array_replace($promotion, [
+                'active' => true,
+                'starts_at' => null,
+                'ends_at' => null,
+            ]), $now);
+
+            return $this->prices->resolve($basePriceCop, $promotion, $now)['effective_price_cop'];
+        } catch (PromotionContractException) {
+            throw new CheckoutReservationPlanningException('INVALID_PROMOTION_CONTRACT');
+        }
+    }
 }

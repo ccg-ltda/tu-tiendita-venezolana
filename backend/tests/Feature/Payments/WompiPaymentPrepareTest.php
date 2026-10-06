@@ -16,7 +16,7 @@ class WompiPaymentPrepareTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.wompi.public_key' => 'pub_test_public_key', 'services.wompi.integrity_secret' => 'integrity_test_secret', 'services.apps_script.url' => self::URL, 'services.apps_script.api_key' => 'apps-script-test-key']);
+        config(['checkout.writer_backend' => 'apps_script', 'services.wompi.public_key' => 'pub_test_public_key', 'services.wompi.integrity_secret' => 'integrity_test_secret', 'services.apps_script.url' => self::URL, 'services.apps_script.api_key' => 'apps-script-test-key']);
         RateLimiter::clear('wompi-prepare:127.0.0.1');
         Cache::flush();
     }
@@ -54,6 +54,22 @@ class WompiPaymentPrepareTest extends TestCase
         $this->assertSame('TTV-SHEETS-77', $decoded['reference']);
         $this->assertIsInt($decoded['exp']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $decoded['nonce']);
+    }
+
+    public function test_wompi_uses_the_discounted_reservation_total_and_never_forwards_client_prices(): void
+    {
+        Http::fake([self::URL => Http::response($this->success(), 200)]);
+        $payload = $this->payload([['id' => 193, 'qty' => 1, 'price' => 1, 'effective_price_cop' => 1, 'discount_cop' => 999999]]);
+        $response = $this->withHeader('Idempotency-Key', $this->key())->postJson('/api/payments/wompi/prepare', $payload)->assertCreated();
+
+        $this->assertSame(1950000, $response->json('payment.amountInCents'));
+        $expiration = $response->json('payment.expirationTime');
+        $this->assertSame(hash('sha256', 'TTV-SHEETS-77'.'1950000COP'.$expiration.'integrity_test_secret'), $response->json('payment.integritySignature'));
+        Http::assertSent(function ($request): bool {
+            $body = json_decode($request->body(), true, 512, JSON_THROW_ON_ERROR);
+
+            return $body['items'] === [['product_id' => 193, 'quantity' => 1]];
+        });
     }
 
     public function test_replayed_apps_script_prepare_preserves_widget_contract(): void

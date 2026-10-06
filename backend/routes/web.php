@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\ProductPromotionController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\ProductController;
@@ -22,6 +23,9 @@ Route::prefix('api/admin')
         Route::post('/products', [AdminProductController::class, 'store']);
         Route::patch('/products/{productId}', [AdminProductController::class, 'update']);
         Route::patch('/products/{productId}/status', [AdminProductController::class, 'updateStatus']);
+        Route::get('/promotions', [ProductPromotionController::class, 'index']);
+        Route::get('/products/{productId}/promotion', [ProductPromotionController::class, 'show']);
+        Route::patch('/products/{productId}/promotion', [ProductPromotionController::class, 'update']);
     });
 
 Route::prefix('api/auth')->group(function () {

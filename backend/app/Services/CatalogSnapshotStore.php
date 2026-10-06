@@ -119,7 +119,7 @@ class CatalogSnapshotStore
         $incoming = ProductNormalizer::snapshot($product);
         if ($incoming === null) throw new CatalogSnapshotException('Catalog snapshot products are invalid.');
         $products = $this->readSnapshot(); $found = false;
-        foreach ($products as $index => $existing) if ($existing['product_id'] === $incoming['product_id']) { $products[$index] = $incoming; $found = true; }
+        foreach ($products as $index => $existing) if ($existing['product_id'] === $incoming['product_id']) { if (isset($existing['promotion']) && !isset($incoming['promotion'])) $incoming['promotion'] = $existing['promotion']; $products[$index] = $incoming; $found = true; }
         if ($mustExist && ! $found) throw new CatalogSnapshotException('Catalog snapshot product is missing.');
         if (! $mustExist && $found) throw new CatalogSnapshotException('Catalog snapshot product already exists.');
         if (! $mustExist) $products[] = $incoming;

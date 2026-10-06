@@ -7,7 +7,7 @@ import { api } from '../../../services/api';
 const PRODUCTS_PER_PAGE = 25;
 
 export function AdminProductsPage() {
-  const { products, productsError, productsInitialLoading, ensureProducts, refreshProducts, applyAdminProduct, handleUnauthorized, productView, setProductView } = useAdminData();
+  const { products, productsError, productsInitialLoading, ensureProducts, refreshProducts, promotions, ensurePromotions, applyAdminProduct, handleUnauthorized, productView, setProductView } = useAdminData();
   const [feedback, setFeedback] = useState('');
   const [drawerMode, setDrawerMode] = useState(null);
   const [drawerProduct, setDrawerProduct] = useState(null);
@@ -18,6 +18,7 @@ export function AdminProductsPage() {
   const [statusChangingId, setStatusChangingId] = useState(null);
 
   useEffect(() => { ensureProducts(); }, [ensureProducts]);
+  useEffect(() => { ensurePromotions(); }, [ensurePromotions]);
   useEffect(() => {
     document.body.classList.add('admin-products-route');
     return () => document.body.classList.remove('admin-products-route');
@@ -29,12 +30,13 @@ export function AdminProductsPage() {
   }, [feedback]);
 
   const catalog = products || [];
+  const promotedProductIds = useMemo(() => new Set((promotions || []).filter((item) => item.status === 'ACTIVE').map((item) => item.product.id)), [promotions]);
   const { search, category, status, currentPage } = productView;
   const categories = useMemo(() => [...new Set(catalog.map((product) => product.category).filter(Boolean))].sort((first, second) => first.localeCompare(second, 'es')), [catalog]);
   const filteredProducts = useMemo(() => catalog
     .filter((product) => product.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
-    .filter((product) => !category || product.category === category)
-    .filter((product) => status === 'all' || (status === 'active' ? product.active : !product.active)), [catalog, search, category, status]);
+    .filter((product) => !category || (category === '__promotions__' ? promotedProductIds.has(product.id) : product.category === category))
+    .filter((product) => status === 'all' || (status === 'active' ? product.active : !product.active)), [catalog, search, category, status, promotedProductIds]);
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const activePage = Math.min(currentPage, totalPages);
   const paginatedProducts = filteredProducts.slice((activePage - 1) * PRODUCTS_PER_PAGE, activePage * PRODUCTS_PER_PAGE);
@@ -103,7 +105,7 @@ export function AdminProductsPage() {
     {!initialLoading && !productsError && catalog.length > 0 && <>
       <div className='admin-products-toolbar'>
         <label className='admin-products-search'><span>Buscar producto</span><input type='search' value={search} onChange={resetPage('search')} placeholder='Buscar producto...' /></label>
-        <label className='admin-products-filter'><span>Categoria</span><select value={category} onChange={resetPage('category')}><option value=''>Todas las categorias</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+        <label className='admin-products-filter'><span>Categoria</span><select value={category} onChange={resetPage('category')}><option value=''>Todas las categorias</option><option value='__promotions__'>Promociones</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <label className='admin-products-filter'><span>Estado</span><select value={status} onChange={resetPage('status')}><option value='all'>Todos</option><option value='active'>Activos</option><option value='inactive'>Inactivos</option></select></label>
       </div>
       {filteredProducts.length === 0 ? <div className='admin-products-state'><p>No se encontraron productos con los filtros actuales.</p></div> : <>

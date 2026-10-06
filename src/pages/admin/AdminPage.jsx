@@ -7,6 +7,7 @@ import '../../styles/admin-dashboard.css';
 const navigation = [
   { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
   { label: 'Productos', icon: 'products', path: '/admin/products' },
+  { label: 'Promociones', icon: 'promotions', path: '/admin/promotions' },
   { label: 'Pedidos', icon: 'orders', path: '/admin/orders' },
 ];
 
@@ -15,6 +16,7 @@ function Icon({ name, size = 20 }) {
   const paths = {
     dashboard: <><rect x='3.5' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='14' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='3.5' y='14' width='6.5' height='6.5' rx='1' /><rect x='14' y='14' width='6.5' height='6.5' rx='1' /></>,
     products: <><path d='m12 3.5 8 4.5-8 4.5L4 8l8-4.5Z' /><path d='M4 8v8l8 4.5 8-4.5V8M12 12.5V20' /></>,
+    promotions: <><path d='M12 3.5 14 8l4.5.5-3.35 3 1 4.5L12 13.7 7.85 16l1-4.5-3.35-3L10 8l2-4.5Z' /><path d='M4 20h16' /></>,
     orders: <><path d='M7 4h10l2 3v13H5V7l2-3Z' /><path d='M5 8h14M9 12h6M9 16h4' /></>,
     inventory: <><path d='M4 7.5h16v13H4zM8 7.5V4h8v3.5M8 12h8M8 16h5' /></>,
     settings: <><circle cx='12' cy='12' r='3' /><path d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56v.08h-3v-.08a1.7 1.7 0 0 0-1.03-1.56A1.7 1.7 0 0 0 8.8 19l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 7.02 15 1.7 1.7 0 0 0 5.46 14H5.4v-3h.06A1.7 1.7 0 0 0 7.02 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06L8.74 5.94l.06.06A1.7 1.7 0 0 0 10.68 6.34 1.7 1.7 0 0 0 11.7 4.78V4.7h3v.08a1.7 1.7 0 0 0 1.03 1.56A1.7 1.7 0 0 0 17.62 6l.06-.06 2.12 2.12-.06.06A1.7 1.7 0 0 0 19.4 10 1.7 1.7 0 0 0 20.96 11h.08v3h-.08A1.7 1.7 0 0 0 19.4 15Z' /></>,
@@ -54,7 +56,9 @@ export function AdminLayout() {
     }
   };
 
-  if (sessionLoading) return <AdminShellPlaceholder />;
+  // A background session refresh must not replace an already usable admin
+  // layout. The global placeholder is reserved for the first session check.
+  if (sessionLoading && !user) return <AdminShellPlaceholder />;
   if (!user) return sessionError ? <main className='admin-session-error'><p role='alert'>{sessionError}</p></main> : null;
 
   const name = user.name || 'Administracion';

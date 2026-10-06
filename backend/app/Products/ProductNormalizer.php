@@ -2,6 +2,9 @@
 
 namespace App\Products;
 
+use App\Promotions\ProductPromotionNormalizer;
+use App\Promotions\PromotionContractException;
+
 final class ProductNormalizer
 {
     public static function normalize(mixed $product): ?array
@@ -17,13 +20,24 @@ final class ProductNormalizer
             if (!is_string($product[$field] ?? null) || ($value=trim($product[$field])) === '' || strlen($value) > $max) return null;
         }
         foreach (['image_path','legacy_img'] as $field) if (($product[$field] ?? null) !== null && !is_string($product[$field])) return null;
-        return [
+        $normalized = [
             'product_id'=>$id,'category'=>trim($product['category']),'subcategory'=>trim($product['subcategory']),
             'name'=>trim($product['name']),'presentation'=>trim($product['presentation']),'price_cop'=>$price,
             'inventory'=>$inventory,'active'=>$active,'image_path'=>$product['image_path'] ?? null,
             'legacy_img'=>$product['legacy_img'] ?? null,'created_at'=>isset($product['created_at']) ? (string)$product['created_at'] : null,
             'updated_at'=>isset($product['updated_at']) ? (string)$product['updated_at'] : null,'revision'=>$revision,
         ];
+        if (array_key_exists('promotion', $product) && $product['promotion'] !== null) {
+            try {
+                $promotion = ProductPromotionNormalizer::normalize($product['promotion']);
+            } catch (PromotionContractException) {
+                return null;
+            }
+            if ($promotion['product_id'] !== $id) return null;
+            $normalized['promotion'] = $promotion;
+        }
+
+        return $normalized;
     }
 
     public static function snapshot(mixed $product): ?array

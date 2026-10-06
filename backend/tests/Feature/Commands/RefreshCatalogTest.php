@@ -3,6 +3,7 @@
 namespace Tests\Feature\Commands;
 
 use App\Services\CatalogSnapshotStore;
+use App\Services\CatalogPromotionSnapshotService;
 use App\Repositories\ProductSheetsRepository;
 use App\Services\ProductSheetsException;
 use Illuminate\Support\Facades\Cache;
@@ -37,6 +38,13 @@ class RefreshCatalogTest extends TestCase
         $client = Mockery::mock(ProductSheetsRepository::class);
         $client->shouldReceive('all')->once()->andReturn([$this->upstreamProduct(3)]);
         $this->app->instance(ProductSheetsRepository::class, $client);
+        $promotionSnapshot = Mockery::mock(CatalogPromotionSnapshotService::class);
+        $promotionSnapshot->shouldReceive('refresh')->once()->andReturnUsing(function (array $products): array {
+            $document = $this->store->writeAtomically($products);
+            $this->store->replaceCache($document['products']);
+            return $document['products'];
+        });
+        $this->app->instance(CatalogPromotionSnapshotService::class, $promotionSnapshot);
 
         $this->artisan('products:refresh-catalog')->assertExitCode(0);
 
@@ -54,6 +62,7 @@ class RefreshCatalogTest extends TestCase
         $client = Mockery::mock(ProductSheetsRepository::class);
         $client->shouldReceive('all')->once()->andThrow(new ProductSheetsException(504));
         $this->app->instance(ProductSheetsRepository::class, $client);
+        $this->app->instance(CatalogPromotionSnapshotService::class, Mockery::mock(CatalogPromotionSnapshotService::class));
 
         $this->artisan('products:refresh-catalog')->assertExitCode(1);
 
