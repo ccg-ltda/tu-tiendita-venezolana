@@ -18,7 +18,11 @@ import { Building2 } from 'lucide-react';
 
 export default function App() {
   const [catalog, setCatalog] = useState([]);
-  const categories = useMemo(() => unique(catalog.filter((product) => product.active !== false).map((product) => product.cat)), [catalog]);
+  const categories = useMemo(() => {
+    const current = catalog.filter((product) => product.active !== false);
+    const base = unique(current.map((product) => product.cat));
+    return current.some((product) => product.promotion?.active === true) ? ['Promociones', ...base] : base;
+  }, [catalog]);
   const [activeCat, setActiveCat] = useState('');
   const [activeSub, setActiveSub] = useState('Todas');
   const [search, setSearch] = useState('');
@@ -111,8 +115,9 @@ export default function App() {
   }, [categories, activeCat]);
 
   const availableCatalog = catalog.filter((product) => product.active !== false);
-  const categoryProducts = availableCatalog.filter((product) => product.cat === activeCat);
-  const subcategories = unique(categoryProducts.map((product) => product.sub));
+  const isPromotionsCategory = activeCat === 'Promociones';
+  const categoryProducts = isPromotionsCategory ? availableCatalog.filter((product) => product.promotion?.active === true) : availableCatalog.filter((product) => product.cat === activeCat);
+  const subcategories = isPromotionsCategory ? [] : unique(categoryProducts.map((product) => product.sub));
   const subCounts = Object.fromEntries(subcategories.map((sub) => [sub, categoryProducts.filter((product) => product.sub === sub).length]));
   subCounts.all = categoryProducts.length;
   const visibleProducts = search.trim()

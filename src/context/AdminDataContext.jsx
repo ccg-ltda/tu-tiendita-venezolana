@@ -42,22 +42,30 @@ export function AdminDataProvider({ children }) {
   const [productsRefreshing, setProductsRefreshing] = useState(false);
   const [productsError, setProductsError] = useState('');
   const [productsLastUpdated, setProductsLastUpdated] = useState(null);
+  const [promotions, setPromotions] = useState(null);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionsRefreshing, setPromotionsRefreshing] = useState(false);
+  const [promotionsError, setPromotionsError] = useState('');
   const [ordersByKey, setOrdersByKey] = useState({});
   const [orderDetailsById, setOrderDetailsById] = useState({});
   const [ordersPage, setOrdersPage] = useState(1);
   const [productView, setProductView] = useState({ search: '', category: '', status: 'all', currentPage: 1 });
 
   const productsRef = useRef(products);
+  const promotionsRef = useRef(promotions);
   const ordersRef = useRef(ordersByKey);
   const detailsRef = useRef(orderDetailsById);
+  const sessionLoadStartedRef = useRef(false);
 
   useEffect(() => { productsRef.current = products; }, [products]);
+  useEffect(() => { promotionsRef.current = promotions; }, [promotions]);
   useEffect(() => { ordersRef.current = ordersByKey; }, [ordersByKey]);
   useEffect(() => { detailsRef.current = orderDetailsById; }, [orderDetailsById]);
 
   const clearAdminData = useCallback(() => {
     abortAdminRequests();
     productsRef.current = null;
+    promotionsRef.current = null;
     ordersRef.current = {};
     detailsRef.current = {};
     setUser(null);
@@ -66,6 +74,10 @@ export function AdminDataProvider({ children }) {
     setProductsRefreshing(false);
     setProductsError('');
     setProductsLastUpdated(null);
+    setPromotions(null);
+    setPromotionsLoading(false);
+    setPromotionsRefreshing(false);
+    setPromotionsError('');
     setOrdersByKey({});
     setOrderDetailsById({});
     setOrdersPage(1);
@@ -102,7 +114,16 @@ export function AdminDataProvider({ children }) {
     }
   }, [handleUnauthorized]);
 
-  useEffect(() => { loadSession(); }, [loadSession]);
+  useEffect(() => {
+    // In BrowserRouter, useNavigate can receive a new identity after a route
+    // transition. Do not turn an internal admin navigation into a new global
+    // session-loading state; the session is verified once when this provider
+    // is mounted.
+    if (sessionLoadStartedRef.current) return;
+
+    sessionLoadStartedRef.current = true;
+    loadSession();
+  }, [loadSession]);
 
   const refreshProducts = useCallback(async ({ force = false } = {}) => {
     const currentProducts = productsRef.current;
@@ -135,6 +156,37 @@ export function AdminDataProvider({ children }) {
   }, [handleUnauthorized]);
 
   const ensureProducts = useCallback(() => refreshProducts(), [refreshProducts]);
+
+  const refreshPromotions = useCallback(async ({ force = false } = {}) => {
+    const currentPromotions = promotionsRef.current;
+    if (!force && currentPromotions !== null) return currentPromotions;
+
+    if (currentPromotions === null) setPromotionsLoading(true);
+    else setPromotionsRefreshing(true);
+    setPromotionsError('');
+
+    try {
+      const { value, generation } = await runRequest('promotions', (signal) => api.listAdminPromotions({ signal }));
+      if (generation !== sessionGeneration) return promotionsRef.current;
+
+      const nextPromotions = value.promotions || [];
+      promotionsRef.current = nextPromotions;
+      setPromotions(nextPromotions);
+
+      return nextPromotions;
+    } catch (error) {
+      if (!isAbortError(error) && !handleUnauthorized(error) && promotionsRef.current === null) {
+        setPromotionsError(error.message || 'No fue posible cargar las promociones.');
+      }
+
+      return promotionsRef.current;
+    } finally {
+      setPromotionsLoading(false);
+      setPromotionsRefreshing(false);
+    }
+  }, [handleUnauthorized]);
+
+  const ensurePromotions = useCallback(() => refreshPromotions(), [refreshPromotions]);
 
   const applyAdminProduct = useCallback((product) => {
     const next = [...(productsRef.current || []).filter((item) => item.id !== product.id), product].sort((left, right) => left.id - right.id);
@@ -264,6 +316,10 @@ export function AdminDataProvider({ children }) {
     productsRefreshing,
     productsError,
     productsLastUpdated,
+    promotions,
+    promotionsLoading,
+    promotionsRefreshing,
+    promotionsError,
     ordersByKey,
     orderDetailsById,
     ordersPage,
@@ -272,6 +328,8 @@ export function AdminDataProvider({ children }) {
     setProductView,
     ensureProducts,
     refreshProducts,
+    ensurePromotions,
+    refreshPromotions,
     applyAdminProduct,
     ensureOrders,
     refreshOrders,
@@ -280,7 +338,7 @@ export function AdminDataProvider({ children }) {
     logout,
     handleUnauthorized,
     ordersKey,
-  }), [applyAdminProduct, ensureOrders, ensureProducts, handleUnauthorized, loadOrderDetail, logout, orderDetailsById, ordersByKey, ordersPage, productView, products, productsError, productsInitialLoading, productsLastUpdated, productsRefreshing, refreshOrders, refreshProducts, sessionError, sessionLoading, updateOrderStatus, user]);
+  }), [applyAdminProduct, ensureOrders, ensureProducts, ensurePromotions, handleUnauthorized, loadOrderDetail, logout, orderDetailsById, ordersByKey, ordersPage, productView, products, productsError, productsInitialLoading, productsLastUpdated, productsRefreshing, promotions, promotionsError, promotionsLoading, promotionsRefreshing, refreshOrders, refreshProducts, refreshPromotions, sessionError, sessionLoading, updateOrderStatus, user]);
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }

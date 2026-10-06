@@ -76,6 +76,8 @@ export const api = {
 
   listAdminProducts: (options = {}) => request('/api/admin/products', options),
 
+  listAdminPromotions: (options = {}) => request('/api/admin/promotions', options),
+
   listAdminOrders: ({ page = 1, perPage = 25, signal } = {}) => request(`/api/admin/orders?page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`, { signal }),
 
   getAdminOrder: (id, options = {}) => request(`/api/admin/orders/${encodeURIComponent(id)}`, options),
@@ -115,6 +117,17 @@ export const api = {
       headers: { 'X-CSRF-TOKEN': csrfToken },
       body: JSON.stringify({ active, expected_revision: expectedRevision }),
     }));
+  },
+
+  getAdminProductPromotion: (id, options = {}) => request(`/api/admin/products/${encodeURIComponent(id)}/promotion`, options),
+
+  updateAdminProductPromotion: async (id, promotion) => {
+    const csrfToken = await getCsrfToken();
+    return request(`/api/admin/products/${encodeURIComponent(id)}/promotion`, {
+      method: 'PATCH',
+      headers: { 'X-CSRF-TOKEN': csrfToken },
+      body: JSON.stringify(promotion),
+    });
   },
 
   login: async (credentials) => {

@@ -7,7 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use App\Repositories\CheckoutSheetsRepository;
-use App\Services\{CheckoutAdminOrderStatusService,CheckoutDirectPreparationService,CheckoutExpiredReservationReleaseService,CheckoutIdSequenceStore,CheckoutJournalStore,CheckoutLock,CheckoutPaymentEventService,CheckoutPaymentEventNormalizer,CheckoutPaymentEventPlanner,CheckoutPaymentEventStateValidator,CheckoutPayloadCanonicalizer,CheckoutRecoveryService,CheckoutReferenceGenerator,CheckoutReleaseCandidateReader,CheckoutReleaseFingerprint,CheckoutReleaseJournalStore,CheckoutReservationPlanner,CheckoutReservationWriter,CheckoutUtcTimestamp,GoogleSheetsClient,OrderNotificationOutboxStore};
+use App\Contracts\GoogleSheetsValuesClient;
+use App\Promotions\ProductPromotionPriceResolver;
+use App\Services\{CheckoutAdminOrderStatusService,CheckoutDirectPreparationService,CheckoutExpiredReservationReleaseService,CheckoutIdSequenceStore,CheckoutJournalStore,CheckoutLock,CheckoutPaymentEventService,CheckoutPaymentEventNormalizer,CheckoutPaymentEventPlanner,CheckoutPaymentEventStateValidator,CheckoutPayloadCanonicalizer,CheckoutRecoveryService,CheckoutReferenceGenerator,CheckoutReleaseCandidateReader,CheckoutReleaseFingerprint,CheckoutReleaseJournalStore,CheckoutReservationPlanner,CheckoutReservationWriter,CheckoutUtcTimestamp,GoogleSheetsClient,GoogleSheetsPromotionStore,OrderNotificationOutboxStore};
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -16,8 +18,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(GoogleSheetsValuesClient::class, fn () => new GoogleSheetsClient);
         $this->app->singleton(CheckoutSheetsRepository::class,fn()=>new CheckoutSheetsRepository(new GoogleSheetsClient));
-        $this->app->singleton(CheckoutDirectPreparationService::class,function($app){$repo=$app->make(CheckoutSheetsRepository::class);$base=storage_path('app/private/checkout');$lock=new CheckoutLock;return new CheckoutDirectPreparationService($lock,new CheckoutPayloadCanonicalizer,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),new CheckoutRecoveryService($lock,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),$repo),new CheckoutReservationPlanner($repo,new CheckoutPayloadCanonicalizer,new CheckoutReferenceGenerator,new CheckoutIdSequenceStore($base.DIRECTORY_SEPARATOR.'sequences.json')),new CheckoutReservationWriter($lock,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),$repo),$repo);});
+        $this->app->singleton(CheckoutDirectPreparationService::class,function($app){$repo=$app->make(CheckoutSheetsRepository::class);$base=storage_path('app/private/checkout');$lock=new CheckoutLock;return new CheckoutDirectPreparationService($lock,new CheckoutPayloadCanonicalizer,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),new CheckoutRecoveryService($lock,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),$repo),new CheckoutReservationPlanner($repo,new GoogleSheetsPromotionStore($app->make(GoogleSheetsValuesClient::class)),new ProductPromotionPriceResolver,new CheckoutPayloadCanonicalizer,new CheckoutReferenceGenerator,new CheckoutIdSequenceStore($base.DIRECTORY_SEPARATOR.'sequences.json')),new CheckoutReservationWriter($lock,new CheckoutJournalStore($base.DIRECTORY_SEPARATOR.'journal'),$repo),$repo);});
         $this->app->singleton(CheckoutPaymentEventService::class,fn($app)=>new CheckoutPaymentEventService(new CheckoutLock,$app->make(CheckoutSheetsRepository::class),new CheckoutIdSequenceStore(storage_path('app/private/checkout/sequences.json')),new OrderNotificationOutboxStore,new CheckoutPaymentEventNormalizer,new CheckoutPaymentEventStateValidator,new CheckoutPaymentEventPlanner));
         $this->app->singleton(CheckoutReleaseCandidateReader::class,fn($app)=>new CheckoutReleaseCandidateReader($app->make(CheckoutSheetsRepository::class),new CheckoutUtcTimestamp));
         $this->app->singleton(CheckoutExpiredReservationReleaseService::class,fn($app)=>new CheckoutExpiredReservationReleaseService(new CheckoutLock,$app->make(CheckoutSheetsRepository::class),new CheckoutReleaseJournalStore(storage_path('app/private/checkout/release-journal')),new CheckoutReleaseFingerprint,new CheckoutUtcTimestamp));
