@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
-use App\Services\CatalogSnapshotException;
-use App\Services\CatalogSnapshotStore;
 use App\Promotions\ProductPromotionPriceResolver;
 use App\Promotions\PromotionContractException;
+use App\Repositories\MySqlProductRepository;
+use App\Repositories\MySqlProductPromotionRepository;
 use Illuminate\Http\JsonResponse;
 
 class ProductController extends Controller
@@ -14,18 +14,19 @@ class ProductController extends Controller
     /**
      * Return the public catalog using the legacy frontend contract.
      */
-    public function index(CatalogSnapshotStore $catalog, ProductPromotionPriceResolver $prices): JsonResponse
+    public function index(MySqlProductRepository $products, MySqlProductPromotionRepository $promotions, ProductPromotionPriceResolver $prices): JsonResponse
     {
         try {
-            $sheetProducts = $catalog->read();
-        } catch (CatalogSnapshotException) {
+            $catalogProducts = $products->all();
+            $promotionsByProduct = $promotions->byProductIds(array_column($catalogProducts, 'product_id'));
+        } catch (\Throwable) {
             return $this->catalogUnavailable();
         }
 
         try {
             $products = array_values(array_map(
-                fn (array $product): array => $this->publicProduct($product, $prices),
-                array_filter($sheetProducts, static fn (array $product): bool => $product['active'] === true),
+                fn (array $product): array => $this->publicProduct(array_replace($product, isset($promotionsByProduct[$product['product_id']]) ? ['promotion' => $promotionsByProduct[$product['product_id']]] : []), $prices),
+                array_filter($catalogProducts, static fn (array $product): bool => $product['active'] === true && ($product['category_active'] ?? true) === true && ($product['subcategory_active'] ?? true) === true),
             ));
         } catch (PromotionContractException) {
             return $this->catalogUnavailable();

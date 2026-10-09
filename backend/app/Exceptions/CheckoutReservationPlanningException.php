@@ -6,7 +6,8 @@ use RuntimeException;
 
 final class CheckoutReservationPlanningException extends RuntimeException
 {
-    public function __construct(private readonly string $checkoutCode)
+    /** @param array<string,scalar|null> $context */
+    public function __construct(private readonly string $checkoutCode, private readonly array $context = [])
     {
         parent::__construct('No fue posible planificar el checkout.');
     }
@@ -14,5 +15,11 @@ final class CheckoutReservationPlanningException extends RuntimeException
     public function checkoutCode(): string
     {
         return $this->checkoutCode;
+    }
+
+    /** @return array<string,scalar|null> */
+    public function context(): array
+    {
+        return $this->context;
     }
 }

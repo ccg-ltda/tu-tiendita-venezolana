@@ -27,6 +27,7 @@ async function request(path, options = {}) {
     error.status = response.status;
     error.code = body?.code ?? null;
     error.details = body?.errors ?? null;
+    error.minimumOrderCop = body?.minimum_order_cop ?? null;
 
     throw error;
   }
@@ -47,7 +48,12 @@ export const api = {
   // Tienda pública: continúa temporalmente usando Express.
   listProducts: () => request('/api/products'),
 
-  prepareWompiPayment: async ({ customer, items }, idempotencyKey) => {
+  previewCoupon: ({ code, items }) => request('/api/checkout/coupon/preview', {
+    method: 'POST',
+    body: JSON.stringify({ code, items }),
+  }),
+
+  prepareWompiPayment: async ({ customer, items, couponCode = null }, idempotencyKey) => {
     if (!idempotencyKey) {
       throw new Error('Se requiere una Idempotency-Key para preparar el pago.');
     }
@@ -60,7 +66,7 @@ export const api = {
         'X-CSRF-TOKEN': csrfToken,
         'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({ customer, items }),
+      body: JSON.stringify({ customer, items, ...(couponCode ? { coupon_code: couponCode } : {}) }),
     });
   },
 
@@ -75,10 +81,36 @@ export const api = {
   me: (options = {}) => request('/api/auth/me', options),
 
   listAdminProducts: (options = {}) => request('/api/admin/products', options),
+  listAdminCategories: (options = {}) => request('/api/admin/categories', options),
+  createAdminCategory: async (name) => { const csrfToken = await getCsrfToken(); return request('/api/admin/categories', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ name }) }); },
+  updateAdminCategory: async (id, name) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/categories/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ name }) }); },
+  updateAdminCategoryStatus: async (id, active) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/categories/${encodeURIComponent(id)}/status`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ active }) }); },
+  createAdminSubcategory: async (categoryId, name) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/categories/${encodeURIComponent(categoryId)}/subcategories`, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ name }) }); },
+  updateAdminSubcategory: async (id, name) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/subcategories/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ name }) }); },
+  updateAdminSubcategoryStatus: async (id, active) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/subcategories/${encodeURIComponent(id)}/status`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify({ active }) }); },
 
   listAdminPromotions: (options = {}) => request('/api/admin/promotions', options),
+  listAdminCoupons: (options = {}) => request('/api/admin/coupons', options),
+  listAdminActivity: ({ limit = 50, beforeId, adminId, resourceType, action, dateFrom, dateTo, includeAuth = false, signal } = {}) => {
+    const query = new URLSearchParams({ limit: String(limit), include_auth: includeAuth ? '1' : '0' });
+    if (beforeId) query.set('before_id', String(beforeId));
+    if (adminId) query.set('admin_id', String(adminId));
+    if (resourceType) query.set('resource_type', resourceType);
+    if (action) query.set('action', action);
+    if (dateFrom) query.set('date_from', dateFrom);
+    if (dateTo) query.set('date_to', dateTo);
+    return request(`/api/admin/audit?${query.toString()}`, { signal });
+  },
+  listAdminActivityAdministrators: (options = {}) => request('/api/admin/audit/administrators', options),
+  getAdminCoupon: (id, options = {}) => request(`/api/admin/coupons/${encodeURIComponent(id)}`, options),
+  createAdminCoupon: async (coupon) => { const csrfToken = await getCsrfToken(); return request('/api/admin/coupons', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(coupon) }); },
+  updateAdminCoupon: async (id, coupon) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/coupons/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(coupon) }); },
 
-  listAdminOrders: ({ page = 1, perPage = 25, signal } = {}) => request(`/api/admin/orders?page=${encodeURIComponent(page)}&per_page=${encodeURIComponent(perPage)}`, { signal }),
+  listAdminOrders: ({ page = 1, perPage = 25, flowStatus = '', signal } = {}) => {
+    const query = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+    if (flowStatus) query.set('flow_status', flowStatus);
+    return request(`/api/admin/orders?${query.toString()}`, { signal });
+  },
 
   getAdminOrder: (id, options = {}) => request(`/api/admin/orders/${encodeURIComponent(id)}`, options),
 
@@ -130,7 +162,7 @@ export const api = {
     });
   },
 
-  login: async (credentials) => {
+  login: async ({ username, password }) => {
     const csrfToken = await getCsrfToken();
 
     const response = await request('/api/auth/login', {
@@ -138,7 +170,7 @@ export const api = {
       headers: {
         'X-CSRF-TOKEN': csrfToken,
       },
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ username, password }),
     });
 
     // Sincroniza el CSRF con la sesión autenticada.
@@ -162,7 +194,7 @@ export const api = {
 function productFormData(product) {
   const formData = new FormData();
 
-  ['name', 'category', 'subcategory', 'presentation', 'price', 'inventory', 'active', 'expected_revision'].forEach((field) => {
+  ['name', 'category_id', 'subcategory_id', 'presentation', 'price', 'inventory', 'active', 'expected_revision'].forEach((field) => {
     if (product[field] === undefined) return;
     formData.append(field, field === 'active' ? (product[field] ? '1' : '0') : product[field]);
   });

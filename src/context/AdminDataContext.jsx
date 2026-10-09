@@ -6,7 +6,7 @@ const AdminDataContext = createContext(null);
 const activeRequests = new Map();
 let sessionGeneration = 0;
 
-const ordersKey = (page, perPage) => `${page}:${perPage}`;
+const ordersKey = (page, perPage, flowStatus = '') => `${page}:${perPage}:${flowStatus || 'all'}`;
 const isAbortError = (error) => error?.name === 'AbortError';
 
 function runRequest(key, request) {
@@ -46,6 +46,7 @@ export function AdminDataProvider({ children }) {
   const [promotionsLoading, setPromotionsLoading] = useState(true);
   const [promotionsRefreshing, setPromotionsRefreshing] = useState(false);
   const [promotionsError, setPromotionsError] = useState('');
+  const [coupons, setCoupons] = useState(null); const [couponsLoading, setCouponsLoading] = useState(true); const [couponsRefreshing, setCouponsRefreshing] = useState(false); const [couponsError, setCouponsError] = useState('');
   const [ordersByKey, setOrdersByKey] = useState({});
   const [orderDetailsById, setOrderDetailsById] = useState({});
   const [ordersPage, setOrdersPage] = useState(1);
@@ -53,12 +54,14 @@ export function AdminDataProvider({ children }) {
 
   const productsRef = useRef(products);
   const promotionsRef = useRef(promotions);
+  const couponsRef = useRef(coupons);
   const ordersRef = useRef(ordersByKey);
   const detailsRef = useRef(orderDetailsById);
   const sessionLoadStartedRef = useRef(false);
 
   useEffect(() => { productsRef.current = products; }, [products]);
   useEffect(() => { promotionsRef.current = promotions; }, [promotions]);
+  useEffect(() => { couponsRef.current = coupons; }, [coupons]);
   useEffect(() => { ordersRef.current = ordersByKey; }, [ordersByKey]);
   useEffect(() => { detailsRef.current = orderDetailsById; }, [orderDetailsById]);
 
@@ -66,6 +69,7 @@ export function AdminDataProvider({ children }) {
     abortAdminRequests();
     productsRef.current = null;
     promotionsRef.current = null;
+    couponsRef.current = null;
     ordersRef.current = {};
     detailsRef.current = {};
     setUser(null);
@@ -78,6 +82,7 @@ export function AdminDataProvider({ children }) {
     setPromotionsLoading(false);
     setPromotionsRefreshing(false);
     setPromotionsError('');
+    setCoupons(null); setCouponsLoading(false); setCouponsRefreshing(false); setCouponsError('');
     setOrdersByKey({});
     setOrderDetailsById({});
     setOrdersPage(1);
@@ -187,6 +192,8 @@ export function AdminDataProvider({ children }) {
   }, [handleUnauthorized]);
 
   const ensurePromotions = useCallback(() => refreshPromotions(), [refreshPromotions]);
+  const refreshCoupons = useCallback(async ({ force = false } = {}) => { const current=couponsRef.current;if(!force&&current!==null)return current;if(current===null)setCouponsLoading(true);else setCouponsRefreshing(true);setCouponsError('');try{const {value,generation}=await runRequest('coupons',(signal)=>api.listAdminCoupons({signal}));if(generation!==sessionGeneration)return couponsRef.current;const next=value.coupons||[];couponsRef.current=next;setCoupons(next);return next;}catch(error){if(!isAbortError(error)&&!handleUnauthorized(error)&&couponsRef.current===null)setCouponsError(error.message||'No fue posible cargar los cupones.');return couponsRef.current;}finally{setCouponsLoading(false);setCouponsRefreshing(false);}},[handleUnauthorized]);
+  const ensureCoupons = useCallback(() => refreshCoupons(), [refreshCoupons]);
 
   const applyAdminProduct = useCallback((product) => {
     const next = [...(productsRef.current || []).filter((item) => item.id !== product.id), product].sort((left, right) => left.id - right.id);
@@ -195,8 +202,27 @@ export function AdminDataProvider({ children }) {
     setProductsLastUpdated(Date.now());
   }, []);
 
-  const refreshOrders = useCallback(async (page = ordersPage, perPage = 25, { force = false } = {}) => {
-    const key = ordersKey(page, perPage);
+  const applyAdminCoupon = useCallback((coupon) => {
+    const requiredFields = ['coupon_id', 'code', 'description', 'active', 'discount_type', 'discount_value', 'minimum_order_cop', 'max_uses', 'used_count', 'starts_at', 'ends_at', 'created_at', 'updated_at', 'revision', 'status'];
+    if (!coupon || !Number.isInteger(coupon.coupon_id) || typeof coupon.code !== 'string' || typeof coupon.active !== 'boolean' || !Number.isInteger(coupon.discount_value) || !Number.isInteger(coupon.used_count) || !Number.isInteger(coupon.revision) || typeof coupon.status !== 'string' || requiredFields.some((field) => !Object.prototype.hasOwnProperty.call(coupon, field)) || couponsRef.current === null) return false;
+
+    let found = false;
+    const nextCoupons = couponsRef.current.map((item) => {
+      if (item.coupon_id !== coupon.coupon_id) return item;
+      found = true;
+      return coupon;
+    });
+
+    if (!found) return false;
+
+    couponsRef.current = nextCoupons;
+    setCoupons(nextCoupons);
+
+    return true;
+  }, []);
+
+  const refreshOrders = useCallback(async (page = ordersPage, perPage = 25, { force = false, flowStatus = '' } = {}) => {
+    const key = ordersKey(page, perPage, flowStatus);
     const current = ordersRef.current[key];
     if (!force && current?.data) return current;
 
@@ -213,7 +239,7 @@ export function AdminDataProvider({ children }) {
     setOrdersByKey((records) => ({ ...records, [key]: pending }));
 
     try {
-      const { value, generation } = await runRequest(`orders:${key}`, (signal) => api.listAdminOrders({ page, perPage, signal }));
+      const { value, generation } = await runRequest(`orders:${key}`, (signal) => api.listAdminOrders({ page, perPage, flowStatus, signal }));
       if (generation !== sessionGeneration) return ordersRef.current[key] ?? null;
 
       const next = {
@@ -245,7 +271,7 @@ export function AdminDataProvider({ children }) {
     }
   }, [handleUnauthorized, ordersPage]);
 
-  const ensureOrders = useCallback((page = ordersPage, perPage = 25) => refreshOrders(page, perPage), [ordersPage, refreshOrders]);
+  const ensureOrders = useCallback((page = ordersPage, perPage = 25, options = {}) => refreshOrders(page, perPage, options), [ordersPage, refreshOrders]);
 
   const loadOrderDetail = useCallback(async (id, { force = false } = {}) => {
     const key = String(id);
@@ -320,6 +346,7 @@ export function AdminDataProvider({ children }) {
     promotionsLoading,
     promotionsRefreshing,
     promotionsError,
+    coupons,couponsLoading,couponsRefreshing,couponsError,
     ordersByKey,
     orderDetailsById,
     ordersPage,
@@ -330,7 +357,9 @@ export function AdminDataProvider({ children }) {
     refreshProducts,
     ensurePromotions,
     refreshPromotions,
+    ensureCoupons,refreshCoupons,
     applyAdminProduct,
+    applyAdminCoupon,
     ensureOrders,
     refreshOrders,
     loadOrderDetail,
@@ -338,7 +367,7 @@ export function AdminDataProvider({ children }) {
     logout,
     handleUnauthorized,
     ordersKey,
-  }), [applyAdminProduct, ensureOrders, ensureProducts, ensurePromotions, handleUnauthorized, loadOrderDetail, logout, orderDetailsById, ordersByKey, ordersPage, productView, products, productsError, productsInitialLoading, productsLastUpdated, productsRefreshing, promotions, promotionsError, promotionsLoading, promotionsRefreshing, refreshOrders, refreshProducts, refreshPromotions, sessionError, sessionLoading, updateOrderStatus, user]);
+  }), [applyAdminCoupon, applyAdminProduct, ensureCoupons, ensureOrders, ensureProducts, ensurePromotions, handleUnauthorized, loadOrderDetail, logout, orderDetailsById, ordersByKey, ordersPage, productView, products, productsError, productsInitialLoading, productsLastUpdated, productsRefreshing, promotions, promotionsError, promotionsLoading, promotionsRefreshing, coupons, couponsLoading, couponsRefreshing, couponsError, refreshCoupons, refreshOrders, refreshProducts, refreshPromotions, sessionError, sessionLoading, updateOrderStatus, user]);
 
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }

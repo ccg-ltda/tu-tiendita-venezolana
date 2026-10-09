@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Services\CheckoutWriterGateway;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\CheckoutGatewayException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -28,7 +28,7 @@ class WompiPaymentController extends Controller
         }
 
         try {
-            $checkout = $this->normalizeCheckout($request->input('customer'), $request->input('items'), $idempotencyKey);
+            $checkout = $this->normalizeCheckout($request->input('customer'), $request->input('items'), $request->input('coupon_code'), $idempotencyKey);
         } catch (WompiPrepareValidationException $exception) {
             Log::info('wompi_prepare_diagnostic_validation_failed', ['idempotency_key_hash' => $keyHash, 'exception_class' => $exception::class, 'http_status' => 400]);
             return response()->json(['error' => $exception->getMessage()], 400);
@@ -52,14 +52,14 @@ class WompiPaymentController extends Controller
         }
 
         try {
-            Log::info('wompi_prepare_diagnostic_apps_script_call', ['idempotency_key_hash' => $keyHash, 'action' => 'prepare_checkout', 'recover_after_ambiguous_prepare' => $checkout['recover_after_ambiguous_prepare']]);
+            Log::info('wompi_prepare_diagnostic_sql_call', ['idempotency_key_hash' => $keyHash, 'action' => 'prepare_checkout']);
             $prepared = $client->prepareCheckout($checkout);
             Cache::put($stateKey, ['state' => 'prepare_successful', 'payload_hash' => $checkout['payload_hash']], now()->addMinutes(self::AMBIGUOUS_PREPARE_TTL_MINUTES));
 
             $status = $prepared['idempotency_replayed'] ? 200 : 201;
             Log::info('wompi_prepare_diagnostic_finished', ['idempotency_key_hash' => $keyHash, 'http_status' => $status, 'idempotency_replayed' => $prepared['idempotency_replayed'], 'prepare_ambiguous_marked' => false]);
             return $this->preparedResponse($prepared, $wompi, $status);
-        } catch (AppsScriptCheckoutException $exception) {
+        } catch (CheckoutGatewayException $exception) {
             if ($checkout['recover_after_ambiguous_prepare'] && $exception->remoteCode() === 'RESERVATION_EXPIRED') {
                 Cache::forget($stateKey);
                 Log::warning('wompi_prepare_diagnostic_expired_ambiguous_recovery', ['idempotency_key_hash' => $keyHash, 'http_status' => 409, 'remote_code' => $exception->remoteCode(), 'prepare_ambiguous_cleared' => true, 'recover_after_ambiguous_prepare' => true]);
@@ -79,7 +79,11 @@ class WompiPaymentController extends Controller
             }
             Log::warning('wompi_prepare_diagnostic_finished', ['idempotency_key_hash' => $keyHash, 'http_status' => $exception->status(), 'exception_class' => $exception::class, 'remote_code' => $exception->remoteCode(), 'timeout' => $exception->status() === 504, 'curl_errno' => null, 'prepare_ambiguous_marked' => $markedAmbiguous, 'recover_after_ambiguous_prepare' => $checkout['recover_after_ambiguous_prepare']]);
 
-            return response()->json(['error' => $this->checkoutError($exception)], $exception->status());
+            $body = ['error' => $this->checkoutError($exception)];
+            // The client needs to invalidate a stale read-only coupon preview;
+            // keep technical codes private for every other checkout failure.
+            if (str_starts_with((string) $exception->remoteCode(), 'COUPON_')) $body['code'] = $exception->remoteCode();
+            return response()->json($body, $exception->status());
         } catch (\Throwable $exception) {
             Log::error('wompi_prepare_diagnostic_finished', ['idempotency_key_hash' => $keyHash, 'http_status' => 503, 'exception_class' => $exception::class, 'prepare_ambiguous_marked' => false, 'recover_after_ambiguous_prepare' => $checkout['recover_after_ambiguous_prepare']]);
             return response()->json(['error' => 'No es posible preparar el pago en este momento.'], 503);
@@ -92,7 +96,7 @@ class WompiPaymentController extends Controller
     }
 
     /** @return array{customer: array<string, string|null>, items: list<array{product_id: int, quantity: int}>, idempotency_key: string, payload_hash: string} */
-    private function normalizeCheckout(mixed $rawCustomer, mixed $rawItems, string $idempotencyKey): array
+    private function normalizeCheckout(mixed $rawCustomer, mixed $rawItems, mixed $rawCouponCode, string $idempotencyKey): array
     {
         if (! is_array($rawCustomer)) {
             throw new WompiPrepareValidationException('Completa todos los datos obligatorios.');
@@ -121,9 +125,16 @@ class WompiPaymentController extends Controller
             throw new WompiPrepareValidationException('El pedido contiene productos inválidos.');
         }
         $items = array_map(static fn (int $id, int $quantity): array => ['product_id' => $id, 'quantity' => $quantity], array_keys($quantities), array_values($quantities));
-        $canonical = json_encode(['customer' => $customer, 'items' => $items], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if ($rawCouponCode !== null && ! is_string($rawCouponCode)) {
+            throw new WompiPrepareValidationException('El cupón no es válido.');
+        }
+        $couponCode = $rawCouponCode === null ? null : \App\Coupons\CouponNormalizer::normalizeCode($rawCouponCode);
+        if ($rawCouponCode !== null && $couponCode === null) {
+            throw new WompiPrepareValidationException('El cupón no es válido.');
+        }
+        $canonical = json_encode(['customer' => $customer, 'items' => $items, 'coupon_code' => $couponCode], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-        return ['customer' => $customer, 'items' => $items, 'idempotency_key' => $idempotencyKey, 'payload_hash' => hash('sha256', $canonical)];
+        return ['customer' => $customer, 'items' => $items, 'coupon_code' => $couponCode, 'idempotency_key' => $idempotencyKey, 'payload_hash' => hash('sha256', $canonical)];
     }
 
     private function normalizedText(mixed $value): string
@@ -244,14 +255,22 @@ return $postal;
         return response()->json(['order' => ['id' => $prepared['order_id'], 'reference' => $prepared['reference'], 'payment_status' => $prepared['payment_status'], 'total' => $prepared['total_cop']], 'payment' => ['publicKey' => $wompi['public_key'], 'currency' => 'COP', 'amountInCents' => $amount, 'reference' => $prepared['reference'], 'integritySignature' => hash('sha256', $prepared['reference'].$amount.'COP'.$expiration.$wompi['integrity_secret']), 'expirationTime' => $expiration], 'checkout' => ['statusToken' => $token, 'statusTokenExpiresAt' => $expiresAt->toIso8601String()]], $status);
     }
 
-    private function checkoutError(AppsScriptCheckoutException $exception): string
+    private function checkoutError(CheckoutGatewayException $exception): string
     {
         if ($exception->remoteCode() === 'RESERVATION_EXPIRED') {
             return 'La reserva anterior venció. Vuelve a continuar al pago para generar una nueva.';
         }
 
         return match ($exception->remoteCode()) {
-            'INSUFFICIENT_STOCK' => 'Uno de los productos ya no tiene inventario suficiente.','PRODUCT_NOT_FOUND','PRODUCT_INACTIVE' => 'Uno de los productos ya no está disponible.','IDEMPOTENCY_CONFLICT' => 'La Idempotency-Key ya fue utilizada con otra solicitud.','INVALID_REQUEST' => 'El pedido contiene productos inválidos.',default => 'No es posible preparar el pago en este momento.'
+            'INSUFFICIENT_STOCK' => 'Uno de los productos ya no tiene inventario suficiente.',
+            'PRODUCT_NOT_FOUND', 'PRODUCT_INACTIVE' => 'Uno de los productos ya no está disponible.',
+            'IDEMPOTENCY_CONFLICT' => 'La Idempotency-Key ya fue utilizada con otra solicitud.',
+            'COUPON_NOT_FOUND' => 'El cupón no existe.',
+            'COUPON_INACTIVE', 'COUPON_SCHEDULED', 'COUPON_EXPIRED', 'COUPON_EXHAUSTED' => 'El cupón no está disponible.',
+            'COUPON_NOT_APPLICABLE' => 'El cupón no aplica a los productos actuales.',
+            'INVALID_COUPON' => 'El cupón no es válido.',
+            'INVALID_REQUEST' => 'El pedido contiene productos inválidos.',
+            default => 'No es posible preparar el pago en este momento.'
         };
     }
 }

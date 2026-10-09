@@ -12,9 +12,21 @@
 .co-success .co-check { width:48px; height:48px; display:grid; place-items:center; margin:0 auto 12px; }
 .co-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .co-summary-row { display:flex; justify-content:space-between; gap:12px; font-size:12px; padding:5px 0; }
+.co-coupon { margin:14px 0 10px; padding-top:12px; border-top:1px solid rgba(0,0,0,.08); }
+.co-coupon label { display:block; margin-bottom:6px; color:var(--ink-soft); font:600 10px 'JetBrains Mono',monospace; letter-spacing:.05em; text-transform:uppercase; }
+.co-coupon-controls { display:flex; gap:8px; }
+.co-coupon-controls input { min-width:0; flex:1; padding:9px 10px; border:1.5px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:600 13px 'JetBrains Mono',monospace; text-transform:uppercase; }
+.co-coupon-controls input:focus { outline:0; border-color:var(--navy); }
+.co-coupon-controls button,.co-coupon-applied button { border:0; border-radius:8px; padding:9px 12px; background:var(--navy); color:#fff; font-size:12px; font-weight:700; }
+.co-coupon-applied { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0; color:#277247; font-size:12px; font-weight:700; }
+.co-coupon-applied button { padding:3px 0; background:none; color:var(--navy); text-decoration:underline; }
+.co-coupon-error { margin:8px 0; color:var(--red-deep); font-size:12px; line-height:1.35; }
+.co-coupon-note { margin:8px 0; color:var(--ink-soft); font-size:11px; line-height:1.4; }
+.co-totals > div { display:flex; justify-content:space-between; gap:12px; padding:4px 0; font-size:12px; }
+.co-totals .co-discount { color:#277247; font-weight:700; }
 .co-btn-next.full { width:100%; background:var(--navy); }
 button:disabled { opacity:.5; cursor:not-allowed; }
-@media (max-width: 700px) { .header-inner { flex-wrap:wrap; } .search-wrap { order:3; max-width:none; flex-basis:100%; } .cat-nav { top:140px; } .co-row { grid-template-columns:1fr; } }
+@media (max-width: 700px) { .header-inner { flex-wrap:wrap; } .search-wrap { order:3; max-width:none; flex-basis:100%; } .cat-nav { top:140px; } .cat-nav-inner { padding:0 16px; -webkit-overflow-scrolling:touch; } .cat-nav-arrow,.cat-nav::before,.cat-nav::after { display:none; } .co-row { grid-template-columns:1fr; } }
 
 /* Acceso y catálogo con inventario */
 .admin-access-btn { display:flex; align-items:center; gap:8px; border:1.5px solid var(--line); background:#fff; color:var(--navy); border-radius:10px; padding:7px 11px; font-size:13px; font-weight:700; text-align:left; transition:.18s ease; }

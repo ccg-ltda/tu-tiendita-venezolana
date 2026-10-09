@@ -43,12 +43,16 @@
   .banner-wrap img{width:100%;border-radius:16px;display:block;box-shadow:0 12px 40px -16px rgba(9,21,51,0.4);}
 
   /* CATEGORY NAV BAR */
-  .cat-nav{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:85px;z-index:50;}
-  .cat-nav-inner{max-width:1240px;margin:0 auto;padding:0 24px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;}
+  .cat-nav{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:85px;z-index:50;display:flex;align-items:stretch;isolation:isolate;}
+  .cat-nav-inner{width:100%;min-width:0;flex:1 1 auto;max-width:1240px;margin:0 auto;padding:0 48px;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;white-space:nowrap;scrollbar-width:none;}
   .cat-nav-inner::-webkit-scrollbar{display:none;}
   .cat-tab{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;padding:14px 16px;font-size:13px;font-weight:600;color:var(--ink-soft);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;cursor:pointer;white-space:nowrap;}
   .cat-tab:hover{color:var(--navy);}
   .cat-tab.active{color:var(--navy);border-bottom-color:var(--red);}
+  .cat-nav-arrow{position:absolute;top:50%;z-index:2;width:34px;height:34px;border:0;border-radius:0;background:transparent;color:var(--navy);display:grid;place-items:center;box-shadow:none;transform:translateY(-50%);transition:opacity .16s,transform .16s;opacity:0;pointer-events:none;}
+  .cat-nav-arrow:hover{background:transparent;transform:translateY(-50%) scale(1.08);}
+  .cat-nav-arrow--left{left:12px;}.cat-nav-arrow--right{right:12px;}.cat-nav.has-left-overflow .cat-nav-arrow--left,.cat-nav.has-right-overflow .cat-nav-arrow--right{opacity:1;pointer-events:auto;}
+  .cat-nav.has-left-overflow::before,.cat-nav.has-right-overflow::after{content:'';position:absolute;top:0;bottom:0;z-index:1;width:58px;pointer-events:none;}.cat-nav.has-left-overflow::before{left:0;background:linear-gradient(90deg,var(--paper),transparent);}.cat-nav.has-right-overflow::after{right:0;background:linear-gradient(270deg,var(--paper),transparent);}
 
   /* MAIN LAYOUT */
   .main{max-width:1240px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:220px 1fr;gap:32px;margin-top:32px;}

@@ -11,7 +11,7 @@ final class ProductNormalizer
     {
         if (!is_array($product)) return null;
         $id = self::int($product['product_id'] ?? null, 1);
-        $price = self::int($product['price_cop'] ?? null, 0);
+        $price = self::int($product['price_cop'] ?? null, 1);
         $inventory = self::int($product['inventory'] ?? null, 0);
         $revision = self::int($product['revision'] ?? null, 1);
         $active = self::bool($product['active'] ?? null);

@@ -32,6 +32,10 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
   const [paymentResult, setPaymentResult] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [couponCode, setCouponCode] = useState('');
+  const [couponPreview, setCouponPreview] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
   const inputRefs = useRef({});
   const idempotencyKey = useRef(null);
   const statusToken = useRef(null);
@@ -43,6 +47,7 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
   const mounted = useRef(false);
   const modalOpen = useRef(open);
   const confirmed = useRef(false);
+  const cartSignature = items.map((item) => `${item.id}:${item.qty}`).sort().join('|');
 
   modalOpen.current = open;
 
@@ -65,6 +70,13 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
   useEffect(() => {
     if (!open) clearStatusCheck();
   }, [open]);
+
+  useEffect(() => {
+    if (!couponPreview) return;
+    setCouponPreview(null);
+    setCouponError('');
+    idempotencyKey.current = null;
+  }, [cartSignature]);
 
   const updateFieldError = (key, message) => setFieldErrors((current) => {
     const next = { ...current };
@@ -117,6 +129,9 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
     setFieldErrors({});
     setTouched({});
     setPaymentResult(null);
+    setCouponCode('');
+    setCouponPreview(null);
+    setCouponError('');
     onClose();
   };
   const returnToAddress = () => {
@@ -217,6 +232,7 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
       const prepared = await api.prepareWompiPayment({
         customer,
         items: items.map((item) => ({ id: item.id, qty: item.qty })),
+        couponCode: couponPreview?.coupon?.code ?? null,
       }, idempotencyKey.current);
       const { order, payment, checkout: preparedCheckout } = prepared;
       if (!preparedCheckout?.statusToken) {
@@ -250,6 +266,11 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
       if (requestError.code === 'RESERVATION_EXPIRED') {
         idempotencyKey.current = null;
       }
+      if (requestError.code?.startsWith('COUPON_')) {
+        setCouponPreview(null);
+        setCouponError(requestError.message);
+        idempotencyKey.current = null;
+      }
       setError(requestError.message);
     } finally {
       setSubmitting(false);
@@ -258,6 +279,32 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
 
   const verifyAgain = () => startStatusVerification({ allowPolling: false });
 
+  const applyCoupon = async (event) => {
+    event.preventDefault();
+    const normalized = couponCode.trim().toUpperCase();
+    setCouponCode(normalized);
+    setCouponPreview(null);
+    setCouponError('');
+    idempotencyKey.current = null;
+    if (!normalized) return setCouponError('Ingresa un código de descuento.');
+    setCouponLoading(true);
+    try {
+      setCouponPreview(await api.previewCoupon({ code: normalized, items: items.map((item) => ({ id: item.id, qty: item.qty })) }));
+    } catch (requestError) {
+      const minimum = requestError.minimumOrderCop;
+      setCouponError(requestError.code === 'COUPON_MINIMUM_NOT_MET' && minimum ? `Este cupón requiere una compra mínima de ${formatPrice(minimum)}.` : requestError.message);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const changeCouponCode = (event) => {
+    setCouponCode(event.target.value);
+    if (couponPreview) { setCouponPreview(null); idempotencyKey.current = null; }
+    setCouponError('');
+  };
+  const removeCoupon = () => { setCouponCode(''); setCouponPreview(null); setCouponError(''); idempotencyKey.current = null; };
+
   if (!open) return null;
   return (
     <div className='co-overlay open' onClick={(event) => event.target === event.currentTarget && resetAndClose()}>
@@ -265,7 +312,7 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
         <div className='co-body'>
           {step === 1 && <div className='co-section active'><Field label='Nombre completo *' value={customer.name} onChange={update('name')} onBlur={validateOnBlur('name')} error={fieldErrors.name} inputRef={(element) => { inputRefs.current.name = element; }} /><Field label='Correo electrónico *' type='email' value={customer.email} onChange={update('email')} onBlur={validateOnBlur('email')} error={fieldErrors.email} inputRef={(element) => { inputRefs.current.email = element; }} /><Field label='Teléfono / WhatsApp *' value={customer.phone} onChange={update('phone')} onBlur={validateOnBlur('phone')} error={fieldErrors.phone} inputRef={(element) => { inputRefs.current.phone = element; }} /><Field label='Número de documento *' value={customer.document} onChange={update('document')} onBlur={validateOnBlur('document')} error={fieldErrors.document} inputRef={(element) => { inputRefs.current.document = element; }} /><div className='co-btn-row'><button className='co-btn-next' onClick={() => continueFromStep(2)}>Continuar →</button></div></div>}
           {step === 2 && <div className='co-section active'><Field label='Dirección de entrega *' value={customer.address} onChange={update('address')} onBlur={validateOnBlur('address')} error={fieldErrors.address} inputRef={(element) => { inputRefs.current.address = element; }} /><Field label='Información adicional' value={customer.extra} onChange={update('extra')} /><div className='co-row'><Field label='Ciudad *' value={customer.city} onChange={update('city')} onBlur={validateOnBlur('city')} error={fieldErrors.city} inputRef={(element) => { inputRefs.current.city = element; }} /><Field label='Departamento *' value={customer.region} onChange={update('region')} onBlur={validateOnBlur('region')} error={fieldErrors.region} inputRef={(element) => { inputRefs.current.region = element; }} /></div><Field label='Código postal' value={customer.postal} onChange={update('postal')} onBlur={validateOnBlur('postal')} error={fieldErrors.postal} inputRef={(element) => { inputRefs.current.postal = element; }} /><div className='co-btn-row'><button className='co-btn-back' onClick={() => setStep(1)}>← Volver</button><button className='co-btn-next' onClick={() => continueFromStep(3)}>Continuar →</button></div></div>}
-          {step === 3 && <div className='co-section active'><div className='co-notice'><strong>Confirma tu solicitud:</strong> al preparar el pago reservaremos las unidades disponibles.</div><div className='co-order-summary'><h4><ShoppingCart size={15} aria-hidden='true' /> Resumen del pedido</h4>{items.map((item) => <div className='co-summary-row' key={item.id}><span>{item.name} ×{item.qty}</span><span>{formatPrice(item.price * item.qty)}</span></div>)}<div className='co-order-total'><span>Total</span><span>{formatPrice(total)}</span></div></div>{error && <div className='login-error' role='alert'>{error}</div>}<div className='co-btn-row'><button className='co-btn-back' disabled={submitting} onClick={returnToAddress}>← Volver</button><button className='co-btn-next' disabled={submitting} onClick={preparePayment}>{submitting ? 'Preparando pago…' : 'Continuar al pago'}</button></div></div>}
+          {step === 3 && <div className='co-section active'><div className='co-notice'><strong>Confirma tu solicitud:</strong> al preparar el pago reservaremos las unidades disponibles.</div><div className='co-order-summary'><h4><ShoppingCart size={15} aria-hidden='true' /> Resumen del pedido</h4>{items.map((item) => <div className='co-summary-row' key={item.id}><span>{item.name} ×{item.qty}</span><span>{formatPrice(item.price * item.qty)}</span></div>)}<form className='co-coupon' onSubmit={applyCoupon}><label htmlFor='checkout-coupon-code'>Código de descuento</label><div className='co-coupon-controls'><input id='checkout-coupon-code' value={couponCode} onChange={changeCouponCode} disabled={couponLoading || submitting} autoComplete='off' aria-describedby={couponError ? 'checkout-coupon-error' : undefined} /><button type='submit' disabled={couponLoading || submitting}>{couponLoading ? 'Aplicando…' : 'Aplicar'}</button></div></form>{couponPreview && <div className='co-coupon-applied' role='status'><span>✓ Cupón {couponPreview.coupon.code} aplicado</span><button type='button' onClick={removeCoupon} disabled={couponLoading || submitting}>Quitar</button></div>}{couponError && <div className='co-coupon-error' id='checkout-coupon-error' role='alert'>{couponError}</div>}{couponPreview?.excluded_promotional_subtotal_cop > 0 && <p className='co-coupon-note'>El descuento se aplicó únicamente a los productos sin promoción.</p>}<div className='co-totals'><div><span>Subtotal</span><span>{formatPrice(couponPreview?.subtotal_cop ?? total)}</span></div>{couponPreview && <div className='co-discount'><span>Descuento</span><span>-{formatPrice(couponPreview.coupon_discount_cop)}</span></div>}<div className='co-order-total'><span>Total</span><span>{formatPrice(couponPreview?.total_cop ?? total)}</span></div></div></div>{error && <div className='login-error' role='alert'>{error}</div>}<div className='co-btn-row'><button className='co-btn-back' disabled={submitting || couponLoading} onClick={returnToAddress}>← Volver</button><button className='co-btn-next' disabled={submitting || couponLoading} onClick={preparePayment}>{submitting ? 'Preparando pago…' : 'Pagar con Wompi'}</button></div></div>}
           {step === 4 && <PaymentResult customer={customer} reference={reference} result={paymentResult} onClose={resetAndClose} onVerifyAgain={verifyAgain} verifying={statusCheckInFlight.current} />}
         </div>
       </div>

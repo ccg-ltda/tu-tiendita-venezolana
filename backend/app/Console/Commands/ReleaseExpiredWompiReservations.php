@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\CheckoutWriterGateway;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\CheckoutGatewayException;
 use App\Support\Payments\WompiTransactionClient;
 use App\Support\Payments\WompiTransactionException;
 use Illuminate\Console\Command;
@@ -20,7 +20,7 @@ class ReleaseExpiredWompiReservations extends Command
         try {
             // Pull up to 50 candidates, then commit isolated batches of at most 20.
             $candidates = $checkout->getExpiredReservationCandidates(50);
-        } catch (AppsScriptCheckoutException $exception) {
+        } catch (CheckoutGatewayException $exception) {
             Log::warning('Wompi expired-reservation candidates are unavailable.', ['status' => $exception->status()]);
             $this->error('Candidates are unavailable; released=0 held=0 review_required=0 errors=1.');
 
@@ -41,7 +41,7 @@ class ReleaseExpiredWompiReservations extends Command
         foreach (array_chunk($releases, 20) as $batch) {
             try {
                 $result = $checkout->commitExpiredReservations($batch);
-            } catch (AppsScriptCheckoutException $exception) {
+            } catch (CheckoutGatewayException $exception) {
                 Log::warning('Wompi expired-reservation commit is unavailable.', ['status' => $exception->status()]);
                 ++$summary['errors'];
                 $this->printSummary($summary);

@@ -27,5 +27,7 @@ final readonly class CheckoutReservationPlan
         public ?int $orderRow,
         public array $orderValues,
         public array $orderItemRows,
+        public ?array $orderCoupon = null,
+        public ?array $couponReservation = null,
     ) {}
 }

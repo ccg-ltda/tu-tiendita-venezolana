@@ -2,37 +2,30 @@
 
 namespace Tests\Feature\Products;
 
-use App\Contracts\GoogleSheetsValuesClient;
 use App\Promotions\ProductPromotionPriceResolver;
-use App\Services\CatalogSnapshotStore;
-use App\Services\GoogleSheetsPromotionStore;
+use App\Repositories\MySqlProductPromotionRepository;
 use App\Services\ProductPromotionAdminService;
+use App\Repositories\MySqlProductRepository;
 use DateTimeImmutable;
 use DateTimeZone;
+use Tests\Support\AuthenticatesAdmin;
 use Tests\TestCase;
 
 class AdminProductPromotionTest extends TestCase
 {
-    private string $directory;
-    private MemoryPromotionSheets $sheets;
+    use AuthenticatesAdmin;
+    private MemoryPromotionRepository $promotionStore;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->directory = sys_get_temp_dir().DIRECTORY_SEPARATOR.'promotion-admin-'.bin2hex(random_bytes(8));
-        $catalog = new CatalogSnapshotStore($this->directory);
-        $catalog->writeAtomically([$this->product()]);
-        $this->sheets = new MemoryPromotionSheets;
-        $promotionStore = new GoogleSheetsPromotionStore($this->sheets);
-        $service = new ProductPromotionAdminService($catalog, $promotionStore, new ProductPromotionPriceResolver, new \App\Services\CatalogPromotionSnapshotService($catalog, $promotionStore));
+        $this->setUpAdminDatabase();
+        $this->promotionStore = new MemoryPromotionRepository;
+        $products = \Mockery::mock(MySqlProductRepository::class);
+        $products->shouldReceive('all')->andReturn([$this->product()]);
+        $products->shouldReceive('findById')->andReturnUsing(fn (int $id): ?array => $id === 7 ? ['product' => $this->product()] : null);
+        $service = new ProductPromotionAdminService($products, $this->promotionStore, new ProductPromotionPriceResolver);
         $this->app->instance(ProductPromotionAdminService::class, $service);
-    }
-
-    protected function tearDown(): void
-    {
-        foreach (scandir($this->directory) ?: [] as $entry) if (!in_array($entry, ['.', '..'], true)) @unlink($this->directory.DIRECTORY_SEPARATOR.$entry);
-        @rmdir($this->directory);
-        parent::tearDown();
     }
 
     public function test_get_without_promotion_returns_an_equivalent_empty_state(): void
@@ -42,13 +35,13 @@ class AdminProductPromotionTest extends TestCase
 
     public function test_get_with_promotion_returns_the_persisted_configuration(): void
     {
-        $this->sheets->append($this->promotion());
+        $this->promotionStore->append($this->promotion());
         $this->admin()->getJson('/api/admin/products/7/promotion')->assertOk()->assertJsonPath('promotion.discount_value', 15)->assertJsonPath('status', 'ACTIVE');
     }
 
     public function test_admin_can_list_promotions_with_their_product_and_effective_pricing(): void
     {
-        $this->sheets->append($this->promotion());
+        $this->promotionStore->append($this->promotion());
 
         $this->admin()->getJson('/api/admin/promotions')->assertOk()
             ->assertJsonPath('promotions.0.product.id', 7)
@@ -62,14 +55,14 @@ class AdminProductPromotionTest extends TestCase
     {
         $created = $this->admin()->patchJson('/api/admin/products/7/promotion', $this->payload())->assertOk()->assertJsonPath('promotion.revision', 1)->assertJsonPath('pricing.effective_price_cop', 17000);
         $this->admin()->patchJson('/api/admin/products/7/promotion', $this->payload(['discount_value' => 20, 'expected_revision' => $created->json('promotion.revision')]))->assertOk()->assertJsonPath('promotion.revision', 2)->assertJsonPath('pricing.effective_price_cop', 16000);
-        $this->assertCount(1, $this->sheets->rows());
+        $this->assertCount(1, $this->promotionStore->rows());
     }
 
     public function test_it_deactivates_without_deleting_the_row(): void
     {
-        $this->sheets->append($this->promotion());
+        $this->promotionStore->append($this->promotion());
         $this->admin()->patchJson('/api/admin/products/7/promotion', $this->payload(['active' => false, 'expected_revision' => 1]))->assertOk()->assertJsonPath('promotion.active', false)->assertJsonPath('status', 'INACTIVE');
-        $this->assertCount(1, $this->sheets->rows());
+        $this->assertCount(1, $this->promotionStore->rows());
     }
 
     public function test_it_rejects_invalid_percentage_and_fixed_amounts(): void
@@ -86,7 +79,7 @@ class AdminProductPromotionTest extends TestCase
 
     public function test_it_rejects_a_stale_promotion_revision(): void
     {
-        $this->sheets->append($this->promotion());
+        $this->promotionStore->append($this->promotion());
         $this->admin()->patchJson('/api/admin/products/7/promotion', $this->payload(['expected_revision' => 2]))->assertConflict();
     }
 
@@ -99,14 +92,14 @@ class AdminProductPromotionTest extends TestCase
             ['EXPIRED', ['ends_at' => $now->modify('-1 day')->format('Y-m-d\\TH:i:s.vP')]],
             ['INACTIVE', ['active' => false]],
         ] as [$status, $changes]) {
-            $this->sheets->replace([$this->promotion($changes)]);
+            $this->promotionStore->replace([$this->promotion($changes)]);
             $this->admin()->getJson('/api/admin/products/7/promotion')->assertOk()->assertJsonPath('status', $status);
         }
     }
 
     private function admin()
     {
-        return $this->withSession(['admin_authenticated' => true]);
+        return $this->authenticatedAdmin();
     }
 
     /** @param array<string,mixed> $changes */
@@ -127,16 +120,13 @@ class AdminProductPromotionTest extends TestCase
     }
 }
 
-final class MemoryPromotionSheets implements GoogleSheetsValuesClient
+final class MemoryPromotionRepository extends MySqlProductPromotionRepository
 {
     private array $rows = [];
-    private const HEADERS = ['product_id','active','discount_type','discount_value','starts_at','ends_at','updated_at','revision'];
-    public function getValues(string $range): array { if (str_ends_with($range, '!1:1')) return [self::HEADERS]; return [self::HEADERS, ...$this->rows]; }
-    public function batchGetValues(array $ranges): array { return array_map(fn (string $range) => $this->getValues($range), $ranges); }
-    public function updateValues(string $range, array $values): array { preg_match('/!(?:A)(\d+):H\d+$/', $range, $matches); $this->rows[(int) $matches[1] - 2] = $values[0]; return []; }
-    public function appendValues(string $range, array $values): array { foreach ($values as $value) $this->rows[] = $value; return []; }
-    public function batchUpdateValues(array $data): array { return []; }
-    public function append(array $promotion): void { $this->rows[] = array_values($promotion); }
-    public function replace(array $promotions): void { $this->rows = array_map(static fn (array $promotion): array => array_values($promotion), $promotions); }
+    public function all(): array { return array_values($this->rows); }
+    public function findByProductId(int $productId): ?array { return $this->rows[$productId] ?? null; }
+    public function save(array $candidate, ?int $expectedRevision): array { $existing=$this->findByProductId($candidate['product_id']); if(($existing===null&&$expectedRevision!==null)||($existing!==null&&$existing['revision']!==$expectedRevision)) throw new \App\Services\PersistenceException(409,'PROMOTION_REVISION_CONFLICT'); $candidate['revision']=$existing===null?1:$existing['revision']+1; $this->rows[$candidate['product_id']]=$candidate; return $candidate; }
+    public function append(array $promotion): void { $this->rows[$promotion['product_id']] = $promotion; }
+    public function replace(array $promotions): void { $this->rows=[]; foreach($promotions as $promotion)$this->append($promotion); }
     public function rows(): array { return $this->rows; }
 }
