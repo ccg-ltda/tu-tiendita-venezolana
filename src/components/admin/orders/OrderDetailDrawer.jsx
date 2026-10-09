@@ -1,7 +1,9 @@
-import { formatCurrency, formatDate, orderStatusClass, orderStatusLabel, paymentStatusClass, paymentStatusLabel } from './OrderTable';
+import { formatCurrency, formatDate, isPaymentNotCompleted, orderDisplayStatusClass, orderDisplayStatusLabel, paymentStatusClass, paymentStatusLabel } from './OrderTable';
+import { orderStatusLabel } from '../../../utils/orderStatus';
 
-export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus }) {
-  const nextAction = order && ({ PENDING: order.payment_status === 'APPROVED' ? ['PROCESSING', 'Iniciar preparación'] : null, PROCESSING: ['READY', 'Marcar como listo'], READY: ['SHIPPED', 'Marcar como enviado'], SHIPPED: ['DELIVERED', 'Marcar como entregado'] }[order.status]);
+export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus, updatingStatus = false }) {
+  const paymentNotCompleted = isPaymentNotCompleted(order);
+  const nextAction = order && !paymentNotCompleted && ({ PENDING: order.payment_status === 'APPROVED' ? ['PROCESSING', 'Iniciar preparación'] : null, PROCESSING: ['READY', 'Marcar como listo'], READY: ['SHIPPED', 'Marcar como enviado'], SHIPPED: ['DELIVERED', 'Marcar como entregado'] }[order.status]);
   const deliveryType = order?.delivery_type || order?.shipping_type || order?.delivery_method;
   return (
     <div className='admin-order-detail-layer' role='presentation'>
@@ -27,7 +29,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                 <h3>Pedido</h3>
                 <dl className='admin-order-detail-list'>
                   <div><dt>Referencia</dt><dd>{order.reference}</dd></div>
-                  <div><dt>Estado operativo</dt><dd><span className={`admin-order-status ${orderStatusClass(order.status)}`}>{orderStatusLabel(order.status)}</span></dd></div>
+                  <div><dt>Estado operativo</dt><dd><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></dd></div>
                   <div><dt>Reserva</dt><dd>{order.reservation_status}</dd></div>
                   <div><dt>Fecha</dt><dd>{formatDate(order.created_at)}</dd></div>
                   <div><dt>Total</dt><dd>{formatCurrency(order.total)}</dd></div>
@@ -52,9 +54,10 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
               </section>
               <section className='admin-order-detail-section'>
                 <h3>Gestionar pedido</h3>
-                {order.status === 'PENDING' && order.payment_status !== 'APPROVED' && <p className='admin-order-detail-state'>El pedido no puede procesarse hasta que el pago esté aprobado.</p>}
-                {nextAction && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus(nextAction[0])}>{nextAction[1]}</button>}
-                {order.status === 'READY' && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus('DELIVERED')}>Marcar como entregado</button>}
+                {paymentNotCompleted && <p className='admin-order-detail-expired' role='status'><strong>Pago no completado</strong><span>La reserva venció sin que Wompi confirmara el pago. El inventario reservado fue liberado automáticamente.</span></p>}
+                {!paymentNotCompleted && order.status === 'PENDING' && order.payment_status !== 'APPROVED' && <p className='admin-order-detail-state'>El pedido no puede procesarse hasta que el pago esté aprobado.</p>}
+                {nextAction && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus(nextAction[0])} disabled={updatingStatus} aria-busy={updatingStatus}>{updatingStatus ? 'Actualizando...' : nextAction[1]}</button>}
+                {!paymentNotCompleted && order.status === 'READY' && <button type='button' className='admin-order-detail-button' onClick={() => onChangeStatus('DELIVERED')} disabled={updatingStatus} aria-busy={updatingStatus}>{updatingStatus ? 'Actualizando...' : 'Marcar como entregado'}</button>}
               </section>
               <section className='admin-order-detail-section'>
                 <h3>Entrega</h3>

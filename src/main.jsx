@@ -6,7 +6,9 @@ import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboardPage, AdminLayout } from './pages/admin/AdminPage';
 import { AdminProductsPage } from './pages/admin/products/AdminProductsPage';
 import { AdminPromotionsPage } from './pages/admin/promotions/AdminPromotionsPage';
+import { AdminCouponsPage } from './pages/admin/coupons/AdminCouponsPage';
 import { AdminOrdersPage } from './pages/admin/orders/AdminOrdersPage';
+import { AdminActivityPage } from './pages/admin/activity/AdminActivityPage';
 import { AdminDataProvider } from './context/AdminDataContext';
 import './styles/global.css';
 import './styles/react.css';
@@ -21,7 +23,9 @@ createRoot(document.getElementById('root')).render(
           <Route index element={<AdminDashboardPage />} />
           <Route path='products' element={<AdminProductsPage />} />
           <Route path='promotions' element={<AdminPromotionsPage />} />
+          <Route path='coupons' element={<AdminCouponsPage />} />
           <Route path='orders' element={<AdminOrdersPage />} />
+          <Route path='activity' element={<AdminActivityPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

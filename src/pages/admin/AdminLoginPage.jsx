@@ -7,7 +7,7 @@ import '../../styles/admin.css';
 export function AdminLoginPage() {
     const navigate = useNavigate();
 
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -35,8 +35,8 @@ export function AdminLoginPage() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        if (!email.trim() || !password) {
-            setError('Ingresa tu correo y contraseña.');
+        if (!username.trim() || !password) {
+            setError('Ingresa tu usuario y contraseña.');
             return;
         }
 
@@ -45,14 +45,14 @@ export function AdminLoginPage() {
 
         try {
             await api.login({
-                email: email.trim(),
+                username: username.trim().toLowerCase(),
                 password,
             });
 
             navigate('/admin', { replace: true });
         } catch (requestError) {
             if (requestError.status === 401) {
-                setError('Correo o contraseña incorrectos.');
+                setError('Usuario o contraseña incorrectos.');
             } else if (requestError.status === 422) {
                 setError('Verifica los datos ingresados.');
             } else if (requestError.status === 429) {
@@ -103,17 +103,17 @@ export function AdminLoginPage() {
                                 </svg>
 
                                 <input
-                                    id='admin-email'
-                                    type='email'
-                                    value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
+                                    id='admin-username'
+                                    type='text'
+                                    value={username}
+                                    onChange={(event) => setUsername(event.target.value)}
                                     autoComplete='username'
                                     placeholder=' '
                                     required
                                 />
 
-                                <label htmlFor='admin-email'>
-                                    Correo electrónico
+                                <label htmlFor='admin-username'>
+                                    Usuario
                                 </label>
                             </div>
                         </div>

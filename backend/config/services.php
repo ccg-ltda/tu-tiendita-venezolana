@@ -14,11 +14,6 @@ return [
     |
     */
 
-    'google_sheets' => [
-        'credentials' => storage_path('app/private/google/service-account.json'),
-        'spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
-    ],
-
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
@@ -41,11 +36,6 @@ return [
         'events_secret' => env('WOMPI_EVENTS_SECRET'),
         'base_url' => env('WOMPI_BASE_URL', 'https://sandbox.wompi.co/v1'),
         'reservation_release_grace_minutes' => (int) env('WOMPI_RESERVATION_RELEASE_GRACE_MINUTES', 35),
-    ],
-
-    'apps_script' => [
-        'url' => env('APPS_SCRIPT_URL'),
-        'api_key' => env('APPS_SCRIPT_API_KEY'),
     ],
 
     'order_notifications' => [

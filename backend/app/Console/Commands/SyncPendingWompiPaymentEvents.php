@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\CheckoutWriterGateway;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\CheckoutGatewayException;
 use App\Services\WompiPaymentEventOutboxStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,7 @@ class SyncPendingWompiPaymentEvents extends Command
                 $checkout->recordPaymentEvent($event['transaction']);
                 $outbox->remove($event['transaction']['id']);
                 ++$summary['synced'];
-            } catch (AppsScriptCheckoutException $exception) {
+            } catch (CheckoutGatewayException $exception) {
                 $outbox->markFailed($event);
                 ++$summary['pending'];
                 Log::warning('Pending Wompi payment event was not persisted.', ['transaction_id' => $event['transaction']['id'], 'status' => $exception->status(), 'remote_code' => $exception->remoteCode()]);

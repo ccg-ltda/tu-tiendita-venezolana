@@ -20,6 +20,8 @@ final class OrderCreatedMailTest extends TestCase
         $this->assertStringContainsString('TTV-88', $html);
         $this->assertStringContainsString('Harina', $html);
         $this->assertStringContainsString('14.000', $html);
+        $this->assertStringContainsString('Te avisaremos cuando entre en preparación.', $html);
+        $this->assertStringNotContainsString('ya comenzamos a prepararlo', $html);
         $this->assertStringNotContainsString('checkout-secret-key', $html);
         $this->assertStringNotContainsString('wompi-transaction-id', $html);
     }

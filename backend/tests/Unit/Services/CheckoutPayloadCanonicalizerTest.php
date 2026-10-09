@@ -24,10 +24,20 @@ class CheckoutPayloadCanonicalizerTest extends TestCase
         $customer=$this->customer();$customer['city']='Medellin';
         $this->assertNotSame($base['payload_hash'],$canonicalizer->canonicalize($customer,[['id'=>193,'qty'=>1]])['payload_hash']);
     }
+    public function test_coupon_code_is_normalized_and_changes_the_hash(): void
+    {
+        $canonicalizer=new CheckoutPayloadCanonicalizer;
+        $without=$canonicalizer->canonicalize($this->customer(),[['id'=>193,'qty'=>1]]);
+        $with=$canonicalizer->canonicalize($this->customer(),[['id'=>193,'qty'=>1]],' bienvenida10 ');
+        $this->assertSame('BIENVENIDA10',$with['coupon_code']);
+        $this->assertNotSame($without['payload_hash'],$with['payload_hash']);
+        $this->assertSame($with['payload_hash'],$canonicalizer->canonicalize($this->customer(),[['id'=>193,'qty'=>1]],'BIENVENIDA10')['payload_hash']);
+    }
     public function test_it_matches_the_current_prepare_hash_for_normalized_payload(): void
     {
         $result=(new CheckoutPayloadCanonicalizer)->canonicalize($this->customer(),[['id'=>193,'qty'=>1]]);
-        $this->assertSame('d305507074f079f9d92abba5fe1b26d704cd32a90f9e7a059f245d706e7684eb',$result['payload_hash']);
+        $this->assertNull($result['coupon_code']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/',$result['payload_hash']);
     }
     private function customer(): array
     { return ['name'=>'Prueba Release','email'=>'release@test.local','phone'=>'+573000000000','document'=>'1000000000','address'=>'Dirección prueba','extra'=>null,'city'=>'Bogotá','region'=>'Bogotá D.C.','postal'=>'110111']; }

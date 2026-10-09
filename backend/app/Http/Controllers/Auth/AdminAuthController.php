@@ -2,48 +2,49 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Admin\AdminAccountNormalizer;
 use App\Http\Controllers\Controller;
+use App\Repositories\MySqlAdminRepository;
+use App\Services\AdminAuditService;
+use App\Services\PersistenceException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
-class AdminAuthController extends Controller
+final class AdminAuthController extends Controller
 {
-    // Autentica únicamente usuarios con rol de administrador.
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, MySqlAdminRepository $accounts, AdminAuditService $audit): JsonResponse
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'username' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        $admin = $this->adminIdentity();
-        if ($admin === null) {
-            return response()->json([
-                'message' => 'El servicio de autenticación no está disponible.',
-            ], 503);
-        }
-
-        $email = strtolower(trim($credentials['email']));
+        $username = AdminAccountNormalizer::normalizeUsername($credentials['username']);
+        if ($username === null) return $this->invalidCredentials();
 
         try {
-            $passwordMatches = Hash::check($credentials['password'], $admin['password_hash']);
+            $admin = $accounts->findByUsername($username);
+            $passwordMatches = $admin !== null && $accounts->passwordMatches($admin, $credentials['password']);
+        } catch (PersistenceException) {
+            return $this->authenticationUnavailable();
         } catch (\Throwable) {
-            return response()->json([
-                'message' => 'El servicio de autenticación no está disponible.',
-            ], 503);
+            return $this->authenticationUnavailable();
         }
 
-        if (! hash_equals($admin['email'], $email) || ! $passwordMatches) {
-            return response()->json([
-                'message' => 'Credenciales incorrectas.',
-            ], 401);
+        if ($admin === null || ! $admin['active'] || $admin['role'] !== 'ADMIN' || ! $passwordMatches) {
+            return $this->invalidCredentials();
         }
 
-        // Regenera el identificador de sesión para prevenir fijación de sesión.
         $request->session()->regenerate();
-
-        $request->session()->put('admin_authenticated', true);
+        $request->session()->put([
+            'admin_authenticated' => true,
+            'admin_id' => $admin['admin_id'],
+            'admin_name' => $admin['name'],
+            'admin_username' => $admin['username'],
+            'admin_role' => $admin['role'],
+            'admin_revision' => $admin['revision'],
+        ]);
+        $audit->record($request, 'LOGIN', 'AUTH', $admin['admin_id']);
 
         return response()->json([
             'message' => 'Inicio de sesión exitoso.',
@@ -51,67 +52,47 @@ class AdminAuthController extends Controller
         ]);
     }
 
-    // Devuelve la identidad del administrador autenticado.
     public function me(Request $request): JsonResponse
     {
-        $admin = $this->adminIdentity();
-        if ($admin === null) {
-            return response()->json([
-                'message' => 'El servicio de autenticación no está disponible.',
-            ], 503);
-        }
+        $admin = $request->attributes->get('admin_validated_account');
+        if (! is_array($admin)) return response()->json(['message' => 'No autenticado.'], 401);
 
-        return response()->json([
-            'user' => $this->publicAdmin($admin),
-        ]);
+        return response()->json(['user' => $this->publicAdmin($admin)]);
     }
 
-    // Cierra la sesión actual y elimina sus credenciales de sesión.
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request, AdminAuditService $audit): JsonResponse
     {
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $adminId = $request->session()->get('admin_id');
+        if (is_int($adminId) || (is_string($adminId) && ctype_digit($adminId))) $audit->record($request, 'LOGOUT', 'AUTH', (int) $adminId);
+        $this->invalidateSession($request);
 
-        return response()->json([
-            'message' => 'Sesión cerrada correctamente.',
-        ]);
+        return response()->json(['message' => 'Sesión cerrada correctamente.']);
     }
 
-    /** @return array{name: string, email: string, password_hash: string}|null */
-    private function adminIdentity(): ?array
-    {
-        $name = config('admin.name');
-        $email = config('admin.email');
-        $passwordHash = config('admin.password_hash');
-
-        if (! is_string($name) || trim($name) === '' || ! is_string($email) || ! is_string($passwordHash)) {
-            return null;
-        }
-
-        $normalizedEmail = strtolower(trim($email));
-        $passwordHash = trim($passwordHash);
-        if (! filter_var($normalizedEmail, FILTER_VALIDATE_EMAIL)
-            || $passwordHash === ''
-            || (Hash::info($passwordHash)['algoName'] ?? 'unknown') === 'unknown'
-        ) {
-            return null;
-        }
-
-        return [
-            'name' => trim($name),
-            'email' => $normalizedEmail,
-            'password_hash' => $passwordHash,
-        ];
-    }
-
-    /** @param array{name: string, email: string, password_hash: string} $admin */
+    /** @param array{admin_id:int,name:string,username:string,role:'ADMIN'} $admin */
     private function publicAdmin(array $admin): array
     {
         return [
-            'id' => 1,
+            'id' => $admin['admin_id'],
             'name' => $admin['name'],
-            'email' => $admin['email'],
-            'role' => 'admin',
+            'username' => $admin['username'],
+            'role' => $admin['role'],
         ];
+    }
+
+    private function invalidCredentials(): JsonResponse
+    {
+        return response()->json(['message' => 'Credenciales incorrectas.'], 401);
+    }
+
+    private function authenticationUnavailable(): JsonResponse
+    {
+        return response()->json(['message' => 'El servicio de autenticación no está disponible.'], 503);
+    }
+
+    private function invalidateSession(Request $request): void
+    {
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 }

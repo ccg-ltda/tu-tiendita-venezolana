@@ -1,3 +1,7 @@
+import { orderStatusLabel } from '../../../utils/orderStatus';
+
+export { orderStatusLabel };
+
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
   currency: 'COP',
@@ -17,8 +21,12 @@ export const formatDate = (value) => {
   return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date);
 };
 
-export const orderStatusLabel = (status) => ({ PENDING: 'Pendiente', PROCESSING: 'En preparación', READY: 'Listo', SHIPPED: 'Enviado', DELIVERED: 'Entregado', CANCELLED: 'Cancelado' }[status] || status);
 export const paymentStatusLabel = (status) => ({ APPROVED: 'Pagado', PENDING: 'Pendiente', DECLINED: 'Rechazado', VOIDED: 'Anulado', ERROR: 'Error' }[status] || status);
+
+export const isPaymentNotCompleted = (order) => order?.payment_flow_status === 'PAYMENT_NOT_COMPLETED'
+  || (order?.status === 'PENDING' && order?.payment_status !== 'APPROVED' && order?.reservation_status === 'RELEASED');
+export const orderDisplayStatusLabel = (order) => isPaymentNotCompleted(order) ? 'Pago no completado' : orderStatusLabel(order.status);
+export const orderDisplayStatusClass = (order) => isPaymentNotCompleted(order) ? 'order-payment-not-completed' : orderStatusClass(order.status);
 
 export const paymentStatusClass = (status) => ({ APPROVED: 'status-paid', PENDING: 'status-payment-pending', DECLINED: 'status-declined', VOIDED: 'status-voided', ERROR: 'status-payment-error' }[status] || '');
 export const orderStatusClass = (status) => ({ PENDING: 'order-pending', PROCESSING: 'order-processing', READY: 'order-ready', SHIPPED: 'order-shipped', DELIVERED: 'order-delivered', CANCELLED: 'order-cancelled' }[status] || '');
@@ -33,6 +41,7 @@ export function OrderTable({ orders, onViewDetail }) {
               <th>Referencia</th>
               <th>Cliente</th>
               <th>Pago</th>
+              <th>Reserva</th>
               <th>Estado del pedido</th>
               <th>Total</th>
               <th>Fecha</th>
@@ -45,7 +54,8 @@ export function OrderTable({ orders, onViewDetail }) {
                 <td className='admin-order-reference'>{order.reference}</td>
                 <td>{order.customer_name}</td>
                 <td><span className={`admin-order-status ${paymentStatusClass(order.payment_status)}`}>{paymentStatusLabel(order.payment_status)}</span></td>
-                <td><span className={`admin-order-status ${orderStatusClass(order.status)}`}>{orderStatusLabel(order.status)}</span></td>
+                <td>{order.reservation_status}</td>
+                <td><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></td>
                 <td className='admin-order-total'>{formatCurrency(order.total)}</td>
                 <td>{formatDate(order.created_at)}</td>
                 <td>
@@ -66,7 +76,8 @@ export function OrderTable({ orders, onViewDetail }) {
             <dl className='admin-order-card-details'>
               <div><dt>Cliente</dt><dd>{order.customer_name}</dd></div>
               <div><dt>Pago</dt><dd><span className={`admin-order-status ${paymentStatusClass(order.payment_status)}`}>{paymentStatusLabel(order.payment_status)}</span></dd></div>
-              <div><dt>Estado del pedido</dt><dd><span className={`admin-order-status ${orderStatusClass(order.status)}`}>{orderStatusLabel(order.status)}</span></dd></div>
+              <div><dt>Reserva</dt><dd>{order.reservation_status}</dd></div>
+              <div><dt>Estado del pedido</dt><dd><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></dd></div>
               <div><dt>Total</dt><dd className='admin-order-total'>{formatCurrency(order.total)}</dd></div>
               <div><dt>Fecha</dt><dd>{formatDate(order.created_at)}</dd></div>
             </dl>

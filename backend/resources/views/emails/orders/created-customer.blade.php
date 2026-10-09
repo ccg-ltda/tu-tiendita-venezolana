@@ -7,7 +7,7 @@
             @include('emails.orders.partials.brand-header')
             <tr><td style="padding: 30px 32px; font-family: Arial, Helvetica, sans-serif; color: #283b4d; font-size: 15px; line-height: 22px;">
                 <h1 style="margin: 0 0 10px; color: #0b2a4a; font-size: 24px; line-height: 30px;">¡Gracias, {{ $entry['customer_name'] }}!</h1>
-                <p style="margin: 0;">Recibimos tu pedido y ya comenzamos a prepararlo.</p>
+                <p style="margin: 0;">Recibimos y registramos tu pedido. Te avisaremos cuando entre en preparación.</p>
                 @include('emails.orders.partials.order-overview')
                 @include('emails.orders.partials.items-summary', ['entry' => $entry])
                 @if (!empty($entry['address']) || !empty($entry['city']))

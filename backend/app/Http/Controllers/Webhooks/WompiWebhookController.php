@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
 use App\Services\CheckoutWriterGateway;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\CheckoutGatewayException;
 use App\Services\WompiPaymentEventOutboxStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,7 +73,7 @@ class WompiWebhookController extends Controller
 
         try {
             $result = $client->recordPaymentEvent($event);
-        } catch (AppsScriptCheckoutException $exception) {
+        } catch (CheckoutGatewayException $exception) {
             $status = $exception->status();
             if (in_array($status, [502, 503, 504], true)) {
                 $this->enqueueForRetry($outbox, $event, $transaction['id']);
@@ -185,7 +185,7 @@ class WompiWebhookController extends Controller
     {
         $method = $transaction['payment_method_type'] ?? null;
 
-        // Apps Script requires a non-empty technical value; Wompi may omit it on early events.
+        // Wompi may omit the method type on early events.
         return is_string($method) && trim($method) !== '' ? trim($method) : 'UNKNOWN';
     }
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ProductForm } from '../../../components/admin/products/ProductForm';
 import { ProductTable } from '../../../components/admin/products/ProductTable';
+import { CategoryManager } from '../../../components/admin/products/CategoryManager';
+import { AdminToast } from '../../../components/admin/AdminToast';
 import { useAdminData } from '../../../context/AdminDataContext';
 import { api } from '../../../services/api';
 
@@ -16,9 +18,15 @@ export function AdminProductsPage() {
   const [formErrors, setFormErrors] = useState({});
   const [statusProduct, setStatusProduct] = useState(null);
   const [statusChangingId, setStatusChangingId] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => { ensureProducts(); }, [ensureProducts]);
   useEffect(() => { ensurePromotions(); }, [ensurePromotions]);
+  const loadCategories = async () => { try { const result = await api.listAdminCategories(); setCategories(result.categories || []); } catch (requestError) { if (!handleUnauthorized(requestError)) setToast({ id: `categories-error-${Date.now()}`, tone: 'error', variant: 'error', title: 'No fue posible cargar categorías', message: requestError.message || 'Intenta nuevamente.' }); } };
+  useEffect(() => { void loadCategories(); }, []);
   useEffect(() => {
     document.body.classList.add('admin-products-route');
     return () => document.body.classList.remove('admin-products-route');
@@ -32,7 +40,6 @@ export function AdminProductsPage() {
   const catalog = products || [];
   const promotedProductIds = useMemo(() => new Set((promotions || []).filter((item) => item.status === 'ACTIVE').map((item) => item.product.id)), [promotions]);
   const { search, category, status, currentPage } = productView;
-  const categories = useMemo(() => [...new Set(catalog.map((product) => product.category).filter(Boolean))].sort((first, second) => first.localeCompare(second, 'es')), [catalog]);
   const filteredProducts = useMemo(() => catalog
     .filter((product) => product.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
     .filter((product) => !category || (category === '__promotions__' ? promotedProductIds.has(product.id) : product.category === category))
@@ -47,6 +54,7 @@ export function AdminProductsPage() {
   const closeDrawer = () => { if (!savingProduct) { setDrawerMode(null); setDrawerProduct(null); setFormError(''); setFormErrors({}); } };
   const openCreate = () => { setFeedback(''); setDrawerProduct(null); setDrawerMode('create'); setFormError(''); setFormErrors({}); };
   const openEdit = (product) => { setFeedback(''); setDrawerProduct(product); setDrawerMode('edit'); setFormError(''); setFormErrors({}); };
+  const categoryAction = async (action, success) => { setCategoryBusy(true); try { await action(); await loadCategories(); setToast({ id: `category-${Date.now()}`, variant: 'success', title: success[0], message: success[1] }); return true; } catch (requestError) { if (!handleUnauthorized(requestError)) setToast({ id: `category-error-${Date.now()}`, tone: 'error', variant: 'error', title: 'No fue posible completar la operación.', message: requestError.message || 'No fue posible completar la operación.' }); return false; } finally { setCategoryBusy(false); } };
 
   const saveProduct = async (values) => {
     setSavingProduct(true);
@@ -56,7 +64,7 @@ export function AdminProductsPage() {
       const result = drawerMode === 'create' ? await api.createAdminProduct(values) : await api.updateAdminProduct(drawerProduct.id, values);
       if (!result || typeof result !== 'object' || !result.product || typeof result.product !== 'object') throw new Error('La respuesta del servidor no contiene el producto actualizado.');
       applyAdminProduct(result.product);
-      setFeedback(result.sync_status === 'pending' || result.catalog_refreshed === false ? 'Producto guardado; sincronizacion con Google pendiente.' : drawerMode === 'create' ? 'Producto creado correctamente.' : 'Producto actualizado correctamente.');
+      setFeedback(result.sync_status === 'pending' || result.catalog_refreshed === false ? 'Producto guardado; la actualización local del catálogo está pendiente.' : drawerMode === 'create' ? 'Producto creado correctamente.' : 'Producto actualizado correctamente.');
       setDrawerMode(null);
       setDrawerProduct(null);
     } catch (requestError) {
@@ -80,7 +88,7 @@ export function AdminProductsPage() {
       const result = await api.updateAdminProductStatus(statusProduct.id, !statusProduct.active, statusProduct.revision);
       if (!result || typeof result !== 'object' || !result.product || typeof result.product !== 'object') throw new Error('La respuesta del servidor no contiene el producto actualizado.');
       applyAdminProduct(result.product);
-      setFeedback(result.sync_status === 'pending' || result.catalog_refreshed === false ? 'Producto guardado; sincronizacion con Google pendiente.' : statusProduct.active ? 'Producto desactivado.' : 'Producto activado.');
+      setFeedback(result.sync_status === 'pending' || result.catalog_refreshed === false ? 'Producto guardado; la actualización local del catálogo está pendiente.' : statusProduct.active ? 'Producto desactivado.' : 'Producto activado.');
       setStatusProduct(null);
     } catch (requestError) {
       if (!handleUnauthorized(requestError)) {
@@ -97,7 +105,7 @@ export function AdminProductsPage() {
   const initialLoading = products === null && productsInitialLoading;
 
   return <div className='admin-content admin-products-page'>
-    <div className='admin-page-heading'><div><p className='admin-eyebrow'>Catalogo administrativo</p><h1>Productos</h1><p>Consulta los productos disponibles en el catalogo.</p></div><button type='button' className='admin-products-new' onClick={openCreate}>+ Nuevo producto</button></div>
+    <div className='admin-page-heading'><div><p className='admin-eyebrow'>Catalogo administrativo</p><h1>Productos</h1><p>Consulta los productos disponibles en el catalogo.</p></div><div className='admin-products-heading-actions'><button type='button' className='admin-products-manage' onClick={() => setCategoryManagerOpen(true)}>Gestionar categorías</button><button type='button' className='admin-products-new' onClick={openCreate}>+ Nuevo producto</button></div></div>
     {feedback && <p className='admin-products-feedback' role='status'>{feedback}</p>}
     {initialLoading && <div className='admin-products-state' role='status'>Cargando productos...</div>}
     {!initialLoading && productsError && <div className='admin-products-state admin-products-state--error' role='alert'><p>{productsError}</p><button type='button' onClick={() => refreshProducts({ force: true })}>Reintentar</button></div>}
@@ -105,7 +113,7 @@ export function AdminProductsPage() {
     {!initialLoading && !productsError && catalog.length > 0 && <>
       <div className='admin-products-toolbar'>
         <label className='admin-products-search'><span>Buscar producto</span><input type='search' value={search} onChange={resetPage('search')} placeholder='Buscar producto...' /></label>
-        <label className='admin-products-filter'><span>Categoria</span><select value={category} onChange={resetPage('category')}><option value=''>Todas las categorias</option><option value='__promotions__'>Promociones</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+        <label className='admin-products-filter'><span>Categoria</span><select value={category} onChange={resetPage('category')}><option value=''>Todas las categorias</option><option value='__promotions__'>Promociones</option>{categories.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
         <label className='admin-products-filter'><span>Estado</span><select value={status} onChange={resetPage('status')}><option value='all'>Todos</option><option value='active'>Activos</option><option value='inactive'>Inactivos</option></select></label>
       </div>
       {filteredProducts.length === 0 ? <div className='admin-products-state'><p>No se encontraron productos con los filtros actuales.</p></div> : <>
@@ -113,8 +121,10 @@ export function AdminProductsPage() {
         <div className='admin-products-pagination'><p>Mostrando {firstProduct}-{lastProduct} de {filteredProducts.length} productos</p><nav aria-label='Paginacion de productos'><button type='button' onClick={() => setProductView((view) => ({ ...view, currentPage: Math.max(1, view.currentPage - 1) }))} disabled={activePage === 1}>Anterior</button>{pageNumbers.map((page, index) => page === 'ellipsis' ? <span key={`ellipsis-${index}`} className='admin-pagination-ellipsis'>...</span> : <button key={page} type='button' className={page === activePage ? 'is-current' : ''} onClick={() => setProductView((view) => ({ ...view, currentPage: page }))} aria-current={page === activePage ? 'page' : undefined}>{page}</button>)}<button type='button' onClick={() => setProductView((view) => ({ ...view, currentPage: Math.min(totalPages, view.currentPage + 1) }))} disabled={activePage === totalPages}>Siguiente</button></nav></div>
       </>}
     </>}
-    {drawerMode && <div className='admin-product-drawer-layer'><div className='admin-product-drawer-backdrop' /><ProductForm mode={drawerMode} product={drawerProduct} products={catalog} saving={savingProduct} error={formError} errors={formErrors} onCancel={closeDrawer} onSubmit={saveProduct} /></div>}
+    {drawerMode && <div className='admin-product-drawer-layer'><div className='admin-product-drawer-backdrop' /><ProductForm mode={drawerMode} product={drawerProduct} categories={categories} saving={savingProduct} error={formError} errors={formErrors} onCancel={closeDrawer} onSubmit={saveProduct} /></div>}
+    {categoryManagerOpen && <CategoryManager categories={categories} busy={categoryBusy} onClose={() => setCategoryManagerOpen(false)} onCreateCategory={(name) => categoryAction(() => api.createAdminCategory(name), ['Categoría creada', 'La categoría fue creada correctamente.'])} onUpdateCategory={(id, name) => categoryAction(() => api.updateAdminCategory(id, name), ['Categoría actualizada', 'Los cambios fueron guardados.'])} onCategoryStatus={(id, active) => categoryAction(() => api.updateAdminCategoryStatus(id, active), [active ? 'Categoría activada' : 'Categoría desactivada', active ? 'La categoría vuelve a estar disponible.' : 'La categoría fue ocultada de nuevas selecciones y de la tienda.'])} onCreateSubcategory={(categoryId, name) => categoryAction(() => api.createAdminSubcategory(categoryId, name), ['Subcategoría creada', 'La subcategoría fue agregada correctamente.'])} onUpdateSubcategory={(id, name) => categoryAction(() => api.updateAdminSubcategory(id, name), ['Subcategoría actualizada', 'Los cambios fueron guardados.'])} onSubcategoryStatus={(id, active) => categoryAction(() => api.updateAdminSubcategoryStatus(id, active), [active ? 'Subcategoría activada' : 'Subcategoría desactivada', active ? 'La subcategoría vuelve a estar disponible.' : 'La subcategoría fue desactivada.'])} />}
     {statusProduct && <div className='admin-product-confirm-layer' role='dialog' aria-modal='true' aria-labelledby='status-confirm-title'><div className='admin-product-confirm'><h2 id='status-confirm-title'>{statusProduct.active ? `Desactivar "${statusProduct.name}"?` : `Activar "${statusProduct.name}"?`}</h2><p>{statusProduct.active ? 'El producto dejara de aparecer en la tienda, pero no sera eliminado.' : 'El producto volvera a aparecer en la tienda.'}</p><div><button type='button' onClick={() => !statusChangingId && setStatusProduct(null)} disabled={Boolean(statusChangingId)}>Cancelar</button><button type='button' className={statusProduct.active ? 'is-danger' : 'is-primary'} onClick={changeStatus} disabled={Boolean(statusChangingId)}>{statusChangingId ? 'Guardando...' : statusProduct.active ? 'Desactivar' : 'Activar'}</button></div></div></div>}
+    <AdminToast toast={toast} onDismiss={() => setToast(null)} />
   </div>;
 }
 

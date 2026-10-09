@@ -8,7 +8,6 @@ use App\Exceptions\CheckoutPaymentEventException;
 final class CheckoutPaymentEventNormalizer
 {
     private const STATUSES=['PENDING','APPROVED','DECLINED','VOIDED','ERROR'];
-    public function __construct(private readonly ?CheckoutUtcTimestamp $timestamps=null) {}
     /** @return array{id:string,reference:string,status:string,payment_method:string,amount_in_cents:int,currency:string,event_occurred_at:string,event_occurred_ms:int} */
     public function normalize(mixed $request, ?\DateTimeInterface $now=null): array
     {
@@ -17,7 +16,7 @@ final class CheckoutPaymentEventNormalizer
         if(!in_array($t['status']??null,self::STATUSES,true))$this->fail('INVALID_REQUEST');$method=$this->text($t['payment_method']??null,1,100);
         $amount=$t['amount_in_cents']??null;if(!is_int($amount)||$amount<1||$amount>9007199254740991)$this->fail('INVALID_REQUEST');
         if(!is_string($t['currency']??null)||$t['currency']!=='COP')$this->fail('CURRENCY_MISMATCH');
-        try{$occurred=($this->timestamps??new CheckoutUtcTimestamp)->parse($t['event_occurred_at']??'');}catch(\Throwable){$this->fail('INVALID_REQUEST');}
+        try{$date=new \DateTimeImmutable((string) ($t['event_occurred_at']??''));$date=$date->setTimezone(new \DateTimeZone('UTC'));$occurred=['iso'=>$date->format('Y-m-d\\TH:i:s.v\\Z'),'epoch_ms'=>((int)$date->format('U'))*1000+(int)$date->format('v')];}catch(\Throwable){$this->fail('INVALID_REQUEST');}
         $current=$now??now('UTC');$future=(int)$current->format('U')*1000+(int)$current->format('v')+600000;
         if($occurred['epoch_ms']>$future)$this->fail('INVALID_REQUEST');
         return ['id'=>$id,'reference'=>$reference,'status'=>$t['status'],'payment_method'=>$method,'amount_in_cents'=>$amount,'currency'=>'COP','event_occurred_at'=>$occurred['iso'],'event_occurred_ms'=>$occurred['epoch_ms']];

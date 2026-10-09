@@ -3,71 +3,64 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\AdminOrdersCache;
+use App\Services\AdminAuditService;
+use App\Services\CheckoutGatewayException;
 use App\Services\CheckoutWriterGateway;
-use App\Services\AppsScriptCheckoutException;
+use App\Services\MySqlAdminOrderListService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    public function index(Request $request, AdminOrdersCache $cache): JsonResponse
+    public function index(Request $request, MySqlAdminOrderListService $orders): JsonResponse
     {
         $perPage = min(max($request->integer('per_page', 25), 1), 100);
         $page = max($request->integer('page', 1), 1);
-        try { $entry = $cache->list($page, $perPage); } catch (\Throwable) { return $this->unavailable(); }
-        if ($entry !== null) {
-            Log::debug($entry['stale'] ? 'admin_orders_stale_served' : 'admin_orders_cache_hit', ['page' => $page, 'per_page' => $perPage]);
-            return response()->json($entry['data']);
+        $flowStatus = $request->query('flow_status');
+        if ($flowStatus !== null && (! is_string($flowStatus) || ! in_array($flowStatus, ['operational', 'payment-not-completed'], true))) {
+            return response()->json(['message' => 'Filtro de pedidos invÃ¡lido.'], 422);
         }
-        Log::notice('admin_orders_cache_miss', ['page' => $page, 'per_page' => $perPage]);
-        return $this->unavailable();
+
+        return response()->json($orders->list($page, $perPage, $flowStatus));
     }
 
-    public function show(string $order, AdminOrdersCache $cache, CheckoutWriterGateway $checkout): JsonResponse
+    public function show(string $order, CheckoutWriterGateway $checkout): JsonResponse
     {
         if (! ctype_digit($order) || (int) $order < 1 || (int) $order > 2147483647) abort(404);
-        $orderId = (int) $order;
-        try { $entry = $cache->detail($orderId); } catch (\Throwable) { return $this->unavailable(); }
-        if ($entry !== null) {
-            Log::debug($entry['stale'] ? 'admin_order_detail_stale_served' : 'admin_order_detail_cache_hit', ['order_id' => $orderId]);
-            return response()->json(['order' => $entry['data']]);
-        }
-        Log::notice('admin_order_detail_cache_miss', ['order_id' => $orderId]);
+
         try {
-            $detail = $checkout->adminGetOrder($orderId);
-            $cache->putDetail($orderId, $detail);
-        } catch (AppsScriptCheckoutException $exception) {
-            Log::warning('admin_order_detail_cache_refresh_failed', ['order_id' => $orderId, 'status' => $exception->status()]);
-
-            return $this->unavailable();
-        } catch (\Throwable) {
-            Log::error('admin_order_detail_cache_refresh_failed', ['order_id' => $orderId]);
-
-            return $this->unavailable();
+            return response()->json(['order' => $checkout->adminGetOrder((int) $order)]);
+        } catch (CheckoutGatewayException $exception) {
+            return $this->unavailable($exception);
         }
-
-        return response()->json(['order' => $detail]);
     }
 
-    public function updateStatus(Request $request, string $order, AdminOrdersCache $client, CheckoutWriterGateway $checkout): JsonResponse
+    public function updateStatus(Request $request, string $order, CheckoutWriterGateway $checkout, AdminAuditService $audit): JsonResponse
     {
         if (! ctype_digit($order) || (int) $order < 1 || (int) $order > 2147483647) abort(404);
         $status = $request->input('status');
-        if (! is_string($status) || ! in_array($status, self::STATUSES, true)) return response()->json(['message' => 'Estado de pedido inválido.'], 422);
+        if (! is_string($status) || ! in_array($status, self::STATUSES, true)) {
+            return response()->json(['message' => 'Estado de pedido inválido.'], 422);
+        }
+
         $orderId = (int) $order;
         try {
             $current = $checkout->adminGetOrder($orderId);
             $this->assertTransition($current['status'], $current['payment_status'], $status);
             $updated = $checkout->adminUpdateOrderStatus($orderId, $status);
-        } catch (AppsScriptCheckoutException $exception) {
+        } catch (CheckoutGatewayException $exception) {
             return response()->json(['message' => $this->updateError($exception)], $exception->status());
         }
 
         $next = [...$current, 'status' => $updated['status'], 'updated_at' => $updated['updated_at']];
-        $client->putDetail($orderId, $next);
-        $this->updateCachedList($client, $orderId, $updated['status']);
+        if ($current['status'] !== $updated['status']) {
+            $reference = $current['reference'];
+            $audit->record($request, 'STATUS_CHANGE', 'ORDER', $reference, [
+                'order_id' => $orderId, 'reference' => $reference, 'status' => $current['status'],
+            ], [
+                'order_id' => $orderId, 'reference' => $reference, 'status' => $updated['status'],
+            ]);
+        }
 
         return response()->json(['order' => $next]);
     }
@@ -77,23 +70,13 @@ class OrderController extends Controller
     private function assertTransition(string $from, string $paymentStatus, string $to): void
     {
         if ($from === $to) return;
-        if ($from === 'DELIVERED' || $from === 'CANCELLED') throw new AppsScriptCheckoutException(422, 'INVALID_STATUS_TRANSITION');
+        if ($from === 'DELIVERED' || $from === 'CANCELLED') throw new CheckoutGatewayException(422, 'INVALID_STATUS_TRANSITION');
         $allowed = ['PENDING' => ['PROCESSING'], 'PROCESSING' => ['READY'], 'READY' => ['SHIPPED', 'DELIVERED'], 'SHIPPED' => ['DELIVERED']];
-        if (! in_array($to, $allowed[$from] ?? [], true)) throw new AppsScriptCheckoutException(422, 'INVALID_STATUS_TRANSITION');
-        if ($from === 'PENDING' && $to === 'PROCESSING' && $paymentStatus !== 'APPROVED') throw new AppsScriptCheckoutException(422, 'PAYMENT_NOT_APPROVED');
+        if (! in_array($to, $allowed[$from] ?? [], true)) throw new CheckoutGatewayException(422, 'INVALID_STATUS_TRANSITION');
+        if ($from === 'PENDING' && $to === 'PROCESSING' && $paymentStatus !== 'APPROVED') throw new CheckoutGatewayException(422, 'PAYMENT_NOT_APPROVED');
     }
 
-    private function updateCachedList(AdminOrdersCache $cache, int $orderId, string $status): void
-    {
-        $entry = $cache->list(1, 25);
-        if ($entry === null) return;
-        $data = $entry['data'];
-        foreach ($data['orders'] as &$order) if ($order['id'] === $orderId) $order['status'] = $status;
-        unset($order);
-        $cache->putList(1, 25, $data);
-    }
-
-    private function updateError(AppsScriptCheckoutException $exception): string
+    private function updateError(CheckoutGatewayException $exception): string
     {
         return match ($exception->remoteCode()) {
             'PAYMENT_NOT_APPROVED' => 'El pedido no puede procesarse hasta que el pago esté aprobado.',
@@ -103,8 +86,9 @@ class OrderController extends Controller
         };
     }
 
-    private function unavailable(): JsonResponse
+    private function unavailable(CheckoutGatewayException $exception): JsonResponse
     {
-        return response()->json(['message' => 'No fue posible cargar los pedidos.'], 503, ['Retry-After' => '15']);
+        if (in_array($exception->remoteCode(), ['ORDER_NOT_FOUND', 'NOT_FOUND'], true)) abort(404);
+        return response()->json(['message' => 'No fue posible cargar los pedidos.'], $exception->status());
     }
 }
