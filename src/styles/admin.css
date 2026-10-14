@@ -153,10 +153,20 @@
 }
 
 .admin-login-field input:focus ~ label,
-.admin-login-field input:not(:placeholder-shown) ~ label {
+.admin-login-field input:not(:placeholder-shown) ~ label,
+.admin-login-field input:-webkit-autofill ~ label,
+.admin-login-field input:autofill ~ label {
   top: 5px;
   transform: translateY(0);
   font-size: 10px;
+}
+
+.admin-login-field input:-webkit-autofill,
+.admin-login-field input:-webkit-autofill:hover,
+.admin-login-field input:-webkit-autofill:focus,
+.admin-login-field input:autofill {
+  -webkit-text-fill-color: #0f2350;
+  caret-color: #0f2350;
 }
 
 .admin-login-field input:focus ~ label {

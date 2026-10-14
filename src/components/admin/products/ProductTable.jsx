@@ -4,7 +4,7 @@ import { ProductStatusBadge } from './ProductStatusBadge';
 const priceFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
 export function ProductTable({ products, onEdit, onToggleStatus, statusChangingId }) {
-  return <div className='admin-product-table-wrap'>
+  return <><div className='admin-product-table-wrap'>
     <table className='admin-product-table'>
       <thead><tr><th>Producto</th><th>Categoría</th><th>Subcategoría</th><th>Presentación</th><th>Precio</th><th>Inventario</th><th>Estado</th><th>Acciones</th></tr></thead>
       <tbody>{products.map((product) => <tr key={product.id}>
@@ -15,7 +15,21 @@ export function ProductTable({ products, onEdit, onToggleStatus, statusChangingI
         <td><div className='admin-product-actions'><button type='button' onClick={() => onEdit(product)}>Editar</button><button type='button' className={product.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggleStatus(product)} disabled={statusChangingId === product.id}>{statusChangingId === product.id ? 'Guardando...' : product.active ? 'Desactivar' : 'Activar'}</button></div></td>
       </tr>)}</tbody>
     </table>
-  </div>;
+  </div><div className='admin-responsive-card-list admin-product-card-list'>{products.map((product) => <ProductCard key={product.id} product={product} onEdit={onEdit} onToggleStatus={onToggleStatus} statusChangingId={statusChangingId} />)}</div></>;
+}
+
+function ProductCard({ product, onEdit, onToggleStatus, statusChangingId }) {
+  return <article className='admin-responsive-card admin-product-card'>
+    <header><ProductIdentity product={product} /><ProductStatusBadge active={product.active} /></header>
+    <dl className='admin-responsive-card-details'>
+      <div><dt>Categoría</dt><dd>{product.category}</dd></div>
+      {product.subcategory && <div><dt>Subcategoría</dt><dd>{product.subcategory}</dd></div>}
+      <div><dt>Presentación</dt><dd>{product.presentation}</dd></div>
+      <div><dt>Precio</dt><dd className='admin-product-price'>{priceFormatter.format(product.price)}</dd></div>
+      <div><dt>Inventario</dt><dd>{product.inventory}</dd></div>
+    </dl>
+    <div className='admin-product-actions'><button type='button' onClick={() => onEdit(product)}>Editar</button><button type='button' className={product.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggleStatus(product)} disabled={statusChangingId === product.id}>{statusChangingId === product.id ? 'Guardando...' : product.active ? 'Desactivar' : 'Activar'}</button></div>
+  </article>;
 }
 
 function ProductIdentity({ product }) {

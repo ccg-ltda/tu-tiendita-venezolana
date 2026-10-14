@@ -5,6 +5,7 @@
     <testsuites>
         <testsuite name="MySQL concurrency">
             <file>tests/Feature/Checkout/MySqlCheckoutConcurrencyTest.php</file>
+            <file>tests/Feature/CatalogSeederTest.php</file>
         </testsuite>
     </testsuites>
     <groups>

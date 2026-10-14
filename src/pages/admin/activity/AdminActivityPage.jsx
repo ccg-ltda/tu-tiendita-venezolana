@@ -98,11 +98,25 @@ export function AdminActivityPage() {
     {!loading && error && <div className='admin-activity-state admin-activity-state--error' role='alert'><p>{error}</p><button type='button' onClick={() => load(filters)}>Reintentar</button></div>}
     {!loading && !error && items.length === 0 && <div className='admin-activity-state'>No hay acciones que coincidan con los filtros seleccionados.</div>}
     {!loading && !error && items.length > 0 && <>
-      <div className='admin-activity-table-wrap'><table className='admin-activity-table'><thead><tr><th>Fecha</th><th>Administrador</th><th>Módulo</th><th>Acción</th><th>Recurso</th></tr></thead><tbody>{items.map((item) => <tr key={item.audit_id} className='admin-activity-row' tabIndex='0' onClick={() => setSelected(item)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(item); } }}><td>{formatDate(item.created_at)}</td><td><strong>{item.username}</strong></td><td>{resourceLabels[item.resource_type] || item.resource_type}</td><td>{actionLabels[item.action] || item.action}</td><td>{resourceName(item)}</td></tr>)}</tbody></table></div>
+      <div className='admin-activity-table-wrap'><table className='admin-activity-table'><thead><tr><th>Fecha</th><th>Administrador</th><th>Módulo</th><th>Acción</th><th>Recurso</th></tr></thead><tbody>{items.map((item) => <tr key={item.audit_id} className='admin-activity-row' tabIndex='0' onClick={() => setSelected(item)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(item); } }}><td>{formatDate(item.created_at)}</td><td><strong>{item.username}</strong></td><td>{resourceLabels[item.resource_type] || item.resource_type}</td><td>{actionLabels[item.action] || item.action}</td><td>{resourceName(item)}</td></tr>)}</tbody></table></div><ActivityCards items={items} onSelect={setSelected} />
       {page.hasMore && <div className='admin-activity-more'><button type='button' onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Cargando...' : 'Cargar más'}</button></div>}
     </>}
     {selected && <ActivityDrawer item={selected} onClose={() => setSelected(null)} />}
   </div>;
+}
+
+function ActivityCards({ items, onSelect }) {
+  const onKeyDown = (event, item) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect(item);
+    }
+  };
+
+  return <div className='admin-activity-card-list'>{items.map((item) => <article key={item.audit_id} className='admin-activity-card' tabIndex='0' role='button' onClick={() => onSelect(item)} onKeyDown={(event) => onKeyDown(event, item)}>
+    <header><h2>{actionLabels[item.action] || item.action}</h2><time dateTime={item.created_at || undefined}>{formatDate(item.created_at)}</time></header>
+    <dl><div><dt>Administrador</dt><dd>{item.username || '—'}</dd></div><div><dt>Módulo</dt><dd>{resourceLabels[item.resource_type] || item.resource_type || '—'}</dd></div><div className='admin-activity-card-detail'><dt>Detalle</dt><dd>{resourceName(item)}</dd></div></dl>
+  </article>)}</div>;
 }
 
 function ActivityDrawer({ item, onClose }) {

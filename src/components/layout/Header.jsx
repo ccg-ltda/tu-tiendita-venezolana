@@ -1,7 +1,10 @@
 import branding from '../../data/branding.json';
+import { Link } from 'react-router-dom';
 import { Package, Search, ShoppingBag } from 'lucide-react';
 
-export function Header({ cartCount, onCartOpen, search, onSearch }) {
+export function Header({ cartCount, onCartOpen, search, onSearch, homeHref = '#inicio', showSearch = true }) {
+  const logoSrc = `/${branding.logo.replace(/^\/+/, '')}`;
+
   return (
     <>
       <div className='announce'>
@@ -10,9 +13,9 @@ export function Header({ cartCount, onCartOpen, search, onSearch }) {
 
       <header>
         <div className='header-inner'>
-          <a className='logo-wrap' href='#inicio' aria-label='Ir al inicio'>
+          <a className='logo-wrap' href={homeHref} aria-label='Ir al inicio'>
             <div className='logo-mark'>
-              <img src={branding.logo} alt='Tu Tiendita Venezolana' />
+              <img src={logoSrc} alt='Tu Tiendita Venezolana' />
             </div>
 
             <div className='logo-text'>
@@ -21,16 +24,17 @@ export function Header({ cartCount, onCartOpen, search, onSearch }) {
             </div>
           </a>
 
-          <label className='search-wrap'>
+          {showSearch && <label className='search-wrap'>
             <Search className='search-icon' size={15} aria-hidden='true' />
             <input
               value={search}
               onChange={(event) => onSearch(event.target.value)}
               placeholder='Buscar productos venezolanos...'
             />
-          </label>
+          </label>}
 
           <div className='header-actions'>
+            <Link className='cart-btn' to='/blog'>Blogs</Link>
             <button className='cart-btn' onClick={onCartOpen}>
               <ShoppingBag size={18} aria-hidden='true' /> Carrito <span className='cart-count'>{cartCount}</span>
             </button>

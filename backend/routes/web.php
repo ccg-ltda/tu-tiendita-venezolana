@@ -15,7 +15,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/api/products', [ProductController::class, 'index']);
+Route::get('/api/products', [ProductController::class, 'index'])
+    ->middleware('throttle:public-catalog');
 Route::prefix('api/admin')
     ->middleware(EnsureAdminAuthenticated::class)
     ->group(function () {
