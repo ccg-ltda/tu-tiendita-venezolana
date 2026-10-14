@@ -88,7 +88,7 @@ export function BlogPostPage() {
       />
 
       <main className='blog-main blog-post-main'>
-        <Link className='blog-back-link' to='/blog'><ArrowLeft size={17} aria-hidden='true' />Volver al blog</Link>
+        <Link className='blog-back-link' to='/blog'><ArrowLeft size={17} aria-hidden='true' />Volver a blogs</Link>
 
         {loading && <section className='blog-status' role='status'>Cargando artículo…</section>}
 
@@ -118,7 +118,7 @@ export function BlogPostPage() {
 function BlogMessage({ children }) {
   return <section className='blog-status blog-status-error' role='alert'>
     <p>{children}</p>
-    <Link className='blog-back-link blog-status-link' to='/blog'><ArrowLeft size={17} aria-hidden='true' />Volver al blog</Link>
+    <Link className='blog-back-link blog-status-link' to='/blog'><ArrowLeft size={17} aria-hidden='true' />Volver a blogs</Link>
   </section>;
 }
 
