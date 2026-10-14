@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarDays, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, FileText } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { PolicyModal } from '../components/common/PolicyModal';
@@ -66,6 +66,7 @@ export function BlogListPage() {
       />
 
       <main className='blog-main'>
+        <Link className='blog-store-link' to='/'><ArrowLeft size={17} aria-hidden='true' />Volver a la tienda</Link>
         <header className='blog-hero'>
           <p className='blog-eyebrow'>Sabores, historias y consejos</p>
           <h1>Blogs</h1>
