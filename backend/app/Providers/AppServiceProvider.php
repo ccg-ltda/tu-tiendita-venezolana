@@ -68,5 +68,20 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)
                 ->by('wompi-status:'.$request->ip().':'.hash('sha256', is_string($token) ? $token : 'missing'));
         });
+
+        RateLimiter::for('bunzy-webhook', static fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('bunzy-webhook:'.$request->ip()));
+
+        RateLimiter::for('wompi-webhook', static fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('wompi-webhook:'.$request->ip()));
+
+        RateLimiter::for('public-catalog', static fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('public-catalog:'.$request->ip()));
+
+        RateLimiter::for('public-blog', static fn (Request $request): Limit => Limit::perMinute(120)
+            ->by('public-blog:'.$request->ip()));
+
+        RateLimiter::for('coupon-preview', static fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('coupon-preview:'.$request->ip()));
     }
 }

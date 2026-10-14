@@ -50,6 +50,19 @@ export function AdminLayout() {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
@@ -70,7 +83,7 @@ export function AdminLayout() {
 
   return <main className='admin-dashboard'>
     <button className={`admin-drawer-overlay ${menuOpen ? 'is-open' : ''}`} type='button' aria-label='Cerrar menu' onClick={() => setMenuOpen(false)} tabIndex={menuOpen ? 0 : -1} />
-    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div></div><nav className='admin-navigation'>{navigation.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><button type='button' className='admin-nav-item' onClick={() => setMenuOpen(false)}><Icon name='settings' /><span>Configuracion</span><small>Proximamente</small></button></div></aside>
+    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div><button className='admin-sidebar-close' type='button' onClick={() => setMenuOpen(false)} aria-label='Cerrar menu'>×</button></div><nav className='admin-navigation'>{navigation.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><button type='button' className='admin-nav-item' onClick={() => setMenuOpen(false)}><Icon name='settings' /><span>Configuracion</span><small>Proximamente</small></button></div></aside>
     <section className='admin-workspace'><header className={`admin-topbar${isDashboard ? '' : ' admin-topbar--module'}`}><button className='admin-menu-button' type='button' onClick={() => setMenuOpen(true)} aria-label='Abrir menu' aria-expanded={menuOpen}><Icon name='menu' /></button>{isDashboard && <div className='admin-greeting'><p>Buenos dias, <strong>{name}</strong></p><span>{user.username}</span></div>}<div className='admin-account'><div className='admin-avatar' aria-hidden='true'>{initials || 'A'}</div><button className='admin-logout' type='button' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></header><Outlet /></section>
   </main>;
 }

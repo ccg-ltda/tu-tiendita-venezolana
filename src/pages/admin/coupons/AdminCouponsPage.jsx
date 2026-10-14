@@ -38,7 +38,7 @@ export function AdminCouponsPage() {
     {error && !editing && <p className='admin-promotion-error' role='alert'>{error}</p>}
     <div className='admin-products-toolbar'><label className='admin-products-search'><span>Buscar cupón</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder='Código o descripción...' /></label><label className='admin-products-filter'><span>Estado</span><select value={status} onChange={(event) => setStatus(event.target.value)}>{options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     {couponsLoading && <div className='admin-products-state'>Cargando cupones...</div>}{couponsError && <div className='admin-products-state admin-products-state--error'>{couponsError}</div>}
-    {!couponsLoading && !couponsError && <div className='admin-promotions-table-wrap admin-coupons-table-wrap'><table className='admin-promotions-table admin-coupons-table'><thead><tr><th>Código</th><th>Descripción</th><th>Tipo</th><th>Descuento</th><th>Mínimo</th><th>Usos</th><th>Vigencia</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{rows.map((coupon) => <tr key={coupon.coupon_id}><td><strong>{coupon.code}</strong></td><td title={coupon.description || undefined}>{coupon.description || '—'}</td><td>{coupon.discount_type === 'percent' ? 'Porcentaje' : 'Valor fijo'}</td><td>{coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : money.format(coupon.discount_value)}</td><td>{coupon.minimum_order_cop ? money.format(coupon.minimum_order_cop) : 'Sin mínimo'}</td><td>{coupon.used_count} / {coupon.max_uses ?? '∞'}</td><td>{coupon.starts_at || coupon.ends_at ? 'Con vigencia' : 'Sin límite'}</td><td><span className={`admin-promotion-status status-${coupon.status.toLowerCase()}`}>{label(coupon.status)}</span></td><td><div className='admin-product-actions'><button onClick={() => { setError(''); setEditing(coupon); }}>Editar</button><button className={coupon.active ? 'is-deactivate' : 'is-activate'} onClick={() => toggle(coupon)} disabled={saving}>{coupon.active ? 'Desactivar' : 'Activar'}</button></div></td></tr>)}{!rows.length && <tr><td colSpan='9' className='admin-promotions-empty'>No hay cupones para mostrar.</td></tr>}</tbody></table></div>}
+    {!couponsLoading && !couponsError && <><div className='admin-promotions-table-wrap admin-coupons-table-wrap'><table className='admin-promotions-table admin-coupons-table'><thead><tr><th>Código</th><th>Descripción</th><th>Tipo</th><th>Descuento</th><th>Mínimo</th><th>Usos</th><th>Vigencia</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{rows.map((coupon) => <tr key={coupon.coupon_id}><td><strong>{coupon.code}</strong></td><td title={coupon.description || undefined}>{coupon.description || '—'}</td><td>{coupon.discount_type === 'percent' ? 'Porcentaje' : 'Valor fijo'}</td><td>{coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : money.format(coupon.discount_value)}</td><td>{coupon.minimum_order_cop ? money.format(coupon.minimum_order_cop) : 'Sin mínimo'}</td><td>{coupon.used_count} / {coupon.max_uses ?? '∞'}</td><td>{coupon.starts_at || coupon.ends_at ? 'Con vigencia' : 'Sin límite'}</td><td><span className={`admin-promotion-status status-${coupon.status.toLowerCase()}`}>{label(coupon.status)}</span></td><td><div className='admin-product-actions'><button type='button' onClick={() => { setError(''); setEditing(coupon); }}>Editar</button><button type='button' className={coupon.active ? 'is-deactivate' : 'is-activate'} onClick={() => toggle(coupon)} disabled={saving}>{coupon.active ? 'Desactivar' : 'Activar'}</button></div></td></tr>)}{!rows.length && <tr><td colSpan='9' className='admin-promotions-empty'>No hay cupones para mostrar.</td></tr>}</tbody></table></div><CouponCards coupons={rows} saving={saving} onEdit={(coupon) => { setError(''); setEditing(coupon); }} onToggle={toggle} /></>}
     {editing !== undefined && <CouponEditor coupon={editing} saving={saving} error={error} onClose={() => !saving && setEditing(undefined)} onSave={save} />}
   </div>;
 }
@@ -53,3 +53,28 @@ function CouponEditor({ coupon, saving, error, onClose, onSave }) {
 const date = (value) => value ? value.slice(0, 16) : '';
 const stamp = (value) => value ? `${value}:00.000-05:00` : null;
 const label = (status) => ({ ACTIVE: 'Activo', SCHEDULED: 'Programado', EXPIRED: 'Vencido', EXHAUSTED: 'Agotado', INACTIVE: 'Inactivo' })[status] || status;
+
+function CouponCards({ coupons, saving, onEdit, onToggle }) {
+  if (coupons.length === 0) return <div className='admin-responsive-card-list admin-responsive-empty'><strong>No hay cupones para mostrar.</strong></div>;
+
+  return <div className='admin-responsive-card-list admin-coupon-card-list'>{coupons.map((coupon) => <article className='admin-responsive-card admin-coupon-card' key={coupon.coupon_id}>
+    <header><div><h2>{coupon.code}</h2>{coupon.description && <p>{coupon.description}</p>}</div><span className={`admin-promotion-status status-${coupon.status.toLowerCase()}`}>{label(coupon.status)}</span></header>
+    <dl className='admin-responsive-card-details'>
+      <div><dt>Tipo</dt><dd>{coupon.discount_type === 'percent' ? 'Porcentaje' : 'Valor fijo'}</dd></div>
+      <div><dt>Descuento</dt><dd>{coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : money.format(coupon.discount_value)}</dd></div>
+      <div><dt>Compra mínima</dt><dd>{coupon.minimum_order_cop ? money.format(coupon.minimum_order_cop) : 'Sin mínimo'}</dd></div>
+      <div><dt>Usos</dt><dd>{coupon.used_count} / {coupon.max_uses ?? '∞'}</dd></div>
+      <div className='admin-responsive-card-detail-wide'><dt>Vigencia</dt><dd>{formatCouponWindow(coupon.starts_at, coupon.ends_at)}</dd></div>
+    </dl>
+    <div className='admin-product-actions'><button type='button' onClick={() => onEdit(coupon)}>Editar</button><button type='button' className={coupon.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggle(coupon)} disabled={saving}>{coupon.active ? 'Desactivar' : 'Activar'}</button></div>
+  </article>)}</div>;
+}
+
+function formatCouponWindow(startsAt, endsAt) {
+  if (!startsAt && !endsAt) return 'Sin límite';
+
+  const format = (value) => new Intl.DateTimeFormat('es-CO', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(value));
+  if (startsAt && endsAt) return `${format(startsAt)} — ${format(endsAt)}`;
+
+  return startsAt ? `Desde ${format(startsAt)}` : `Hasta ${format(endsAt)}`;
+}

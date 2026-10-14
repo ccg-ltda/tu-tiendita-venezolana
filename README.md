@@ -54,6 +54,32 @@ wompi:sync-pending-payment-events
 orders:send-pending-notifications
 ```
 
+## Despliegue seguro de Laravel
+
+En el `backend/.env` del servidor (no versionado), configure como minimo:
+
+```text
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://api.tutienditavenezolana.com
+FRONTEND_URL=https://tutienditavenezolana.com
+
+SESSION_DRIVER=database
+SESSION_SECURE_COOKIE=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+SESSION_DOMAIN=
+```
+
+Deje `SESSION_DOMAIN` vacio para una cookie host-only de la API, salvo que se
+necesite deliberadamente compartir la cookie con otros subdominios. Tras
+actualizar la configuracion del servidor, ejecute desde `backend/`:
+
+```text
+php artisan config:clear
+php artisan config:cache
+```
+
 ## Pruebas y build
 
 Desde `backend/`:

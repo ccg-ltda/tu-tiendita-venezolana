@@ -13,6 +13,7 @@ import { ProductGrid } from './components/catalog/ProductGrid';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { Toast } from './components/cart/Toast';
 import { PolicyModal } from './components/common/PolicyModal';
+import { SeoHead } from './components/common/SeoHead';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { Building2 } from 'lucide-react';
 
@@ -143,6 +144,14 @@ export default function App() {
 
   return (
     <div id='inicio'>
+      <SeoHead
+        title='Productos venezolanos en Colombia | Tu Tiendita Venezolana'
+        description='Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.'
+        canonical='https://tutienditavenezolana.com/'
+        robots='index,follow'
+        openGraph={{ title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png', url: 'https://tutienditavenezolana.com/', type: 'website' }}
+        twitter={{ card: 'summary_large_image', title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png' }}
+      />
       <Awning />
       <Header
         cartCount={cartCount}
@@ -151,6 +160,7 @@ export default function App() {
         onSearch={setSearch}
       />
       <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' /></div>
+      <div className='home-heading'><h1>Productos venezolanos en Colombia</h1></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}

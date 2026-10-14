@@ -52,7 +52,7 @@ export function AdminPromotionsPage() {
     <div className='admin-products-toolbar'><label className='admin-products-search'><span>Buscar producto</span><input type='search' value={query} onChange={(event) => setQuery(event.target.value)} placeholder='Buscar producto...' /></label><label className='admin-products-filter'><span>Estado</span><select value={status} onChange={(event) => setStatus(event.target.value)}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
     {promotionsLoading && <div className='admin-products-state' role='status'>Cargando promociones...</div>}
     {!promotionsLoading && promotionsError && <div className='admin-products-state admin-products-state--error' role='alert'><p>{promotionsError}</p><button type='button' onClick={() => refreshPromotions({ force: true })}>Reintentar</button></div>}
-    {!promotionsLoading && !promotionsError && <div className='admin-promotions-table-wrap'><table className='admin-promotions-table'><thead><tr><th>Producto</th><th>Precio base</th><th>Tipo</th><th>Descuento</th><th>Precio promocional</th><th>Vigencia</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map((record) => <PromotionRow key={record.product.id} record={record} onEdit={() => { setEditorError(''); setEditorRecord(record); }} onToggle={() => toggleActive(record)} saving={saving} />)}{filtered.length === 0 && <tr><td colSpan='8' className='admin-promotions-empty'><strong>{records.length === 0 ? 'No hay promociones creadas.' : 'No encontramos promociones con estos filtros.'}</strong><span>{records.length === 0 ? 'Crea una promoción para mostrar descuentos en el catálogo.' : 'Prueba cambiar la búsqueda o el estado seleccionado.'}</span></td></tr>}</tbody></table></div>}
+    {!promotionsLoading && !promotionsError && <><div className='admin-promotions-table-wrap'><table className='admin-promotions-table'><thead><tr><th>Producto</th><th>Precio base</th><th>Tipo</th><th>Descuento</th><th>Precio promocional</th><th>Vigencia</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map((record) => <PromotionRow key={record.product.id} record={record} onEdit={() => { setEditorError(''); setEditorRecord(record); }} onToggle={() => toggleActive(record)} saving={saving} />)}{filtered.length === 0 && <tr><td colSpan='8' className='admin-promotions-empty'><strong>{records.length === 0 ? 'No hay promociones creadas.' : 'No encontramos promociones con estos filtros.'}</strong><span>{records.length === 0 ? 'Crea una promoción para mostrar descuentos en el catálogo.' : 'Prueba cambiar la búsqueda o el estado seleccionado.'}</span></td></tr>}</tbody></table></div><PromotionCards records={filtered} totalRecords={records.length} saving={saving} onEdit={(record) => { setEditorError(''); setEditorRecord(record); }} onToggle={toggleActive} /></>}
     {editorRecord !== undefined && <PromotionEditor products={editorRecord ? (products || []).filter((product) => product.id === editorRecord.product.id) : promotableProducts} record={editorRecord} saving={saving} error={editorError} onCancel={closeEditor} onSave={save} />}
   </div>;
 }
@@ -61,6 +61,27 @@ function PromotionRow({ record, onEdit, onToggle, saving }) {
   const { product, promotion, pricing, status } = record;
   const discount = promotion.discount_type === 'percent' ? `${promotion.discount_value}%` : priceFormatter.format(pricing.discount_cop);
   return <tr><td><strong>{product.name}</strong>{!product.active && <small className='admin-promotion-product-inactive'>Producto inactivo</small>}</td><td>{priceFormatter.format(pricing.base_price_cop)}</td><td>{promotion.discount_type === 'percent' ? 'Porcentaje' : 'Valor fijo'}</td><td>{discount}</td><td>{priceFormatter.format(pricing.effective_price_cop)}</td><td>{formatWindow(promotion.starts_at, promotion.ends_at)}</td><td><span className={`admin-promotion-status status-${status.toLowerCase()}`}>{promotionStatusLabel(status)}</span></td><td><div className='admin-product-actions'><button type='button' onClick={onEdit} disabled={saving}>Editar</button><button type='button' className={promotion.active ? 'is-deactivate' : 'is-activate'} onClick={onToggle} disabled={saving}>{promotion.active ? 'Desactivar' : 'Activar'}</button></div></td></tr>;
+}
+
+function PromotionCards({ records, totalRecords, saving, onEdit, onToggle }) {
+  if (records.length === 0) return <div className='admin-responsive-card-list admin-responsive-empty'><strong>{totalRecords === 0 ? 'No hay promociones creadas.' : 'No encontramos promociones con estos filtros.'}</strong><span>{totalRecords === 0 ? 'Crea una promoción para mostrar descuentos en el catálogo.' : 'Prueba cambiar la búsqueda o el estado seleccionado.'}</span></div>;
+
+  return <div className='admin-responsive-card-list admin-promotion-card-list'>{records.map((record) => {
+    const { product, promotion, pricing, status } = record;
+    const discount = promotion.discount_type === 'percent' ? `${promotion.discount_value}%` : priceFormatter.format(pricing.discount_cop);
+
+    return <article className='admin-responsive-card admin-promotion-card' key={product.id}>
+      <header><div><h2>{product.name}</h2>{!product.active && <small className='admin-promotion-product-inactive'>Producto inactivo</small>}</div><span className={`admin-promotion-status status-${status.toLowerCase()}`}>{promotionStatusLabel(status)}</span></header>
+      <dl className='admin-responsive-card-details'>
+        <div><dt>Tipo</dt><dd>{promotion.discount_type === 'percent' ? 'Porcentaje' : 'Valor fijo'}</dd></div>
+        <div><dt>Descuento</dt><dd>{discount}</dd></div>
+        <div><dt>Precio base</dt><dd>{priceFormatter.format(pricing.base_price_cop)}</dd></div>
+        <div><dt>Precio promocional</dt><dd>{priceFormatter.format(pricing.effective_price_cop)}</dd></div>
+        <div className='admin-responsive-card-detail-wide'><dt>Vigencia</dt><dd>{formatWindow(promotion.starts_at, promotion.ends_at)}</dd></div>
+      </dl>
+      <div className='admin-product-actions'><button type='button' onClick={() => onEdit(record)} disabled={saving}>Editar</button><button type='button' className={promotion.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggle(record)} disabled={saving}>{promotion.active ? 'Desactivar' : 'Activar'}</button></div>
+    </article>;
+  })}</div>;
 }
 
 function formatWindow(startsAt, endsAt) {
