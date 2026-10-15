@@ -14,12 +14,14 @@ import { BlogListPage } from './pages/BlogListPage';
 import { BlogPostPage } from './pages/BlogPostPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SeoHead } from './components/common/SeoHead';
+import { ScrollToTop } from './components/common/ScrollToTop';
 import './styles/global.css';
 import './styles/react.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path='/' element={<App />} />
         <Route path='/blog' element={<BlogListPage />} />
