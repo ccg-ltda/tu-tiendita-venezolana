@@ -160,7 +160,6 @@ export default function App() {
         onSearch={setSearch}
       />
       <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' /></div>
-      <div className='home-heading'><h1>Productos venezolanos en Colombia</h1></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
