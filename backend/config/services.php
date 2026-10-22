@@ -42,6 +42,10 @@ return [
         'admin_email' => env('ORDER_NOTIFICATION_EMAIL'),
     ],
 
+    'admin_creation' => [
+        'allowed' => env('ALLOW_ADMIN_CREATION', false),
+    ],
+
     'bunzy' => [
         'secret' => env('BUNZY_WEBHOOK_SECRET'),
     ],

@@ -7,10 +7,12 @@ use App\Promotions\ProductPromotionPriceResolver;
 use App\Promotions\PromotionContractException;
 use App\Repositories\MySqlProductRepository;
 use App\Repositories\MySqlProductPromotionRepository;
+use App\Services\ProductImageStore;
 use Illuminate\Http\JsonResponse;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly ProductImageStore $images) {}
     /**
      * Return the public catalog using the legacy frontend contract.
      */
@@ -46,7 +48,7 @@ class ProductController extends Controller
         $public = [
             'id' => $product['product_id'], 'img' => $product['legacy_img'], 'cat' => $product['category'],
             'sub' => $product['subcategory'], 'name' => $product['name'], 'pres' => $product['presentation'],
-            'price' => $price['effective_price_cop'], 'image' => $product['image_path'],
+            'price' => $price['effective_price_cop'], 'image' => $this->images->publicUrl($product['image_path']),
             'inventory' => $product['inventory'], 'active' => $product['active'],
         ];
         if ($price['has_active_promotion']) {

@@ -17,6 +17,12 @@ final class CreateAdminAccount extends Command
 
     public function handle(MySqlAdminRepository $accounts): int
     {
+        if (app()->environment('production') && ! config('services.admin_creation.allowed', false)) {
+            $this->error('La creación de administradores está deshabilitada en producción.');
+
+            return self::FAILURE;
+        }
+
         $name = $this->ask('Nombre');
         $username = $this->ask('Usuario');
         $password = $this->secret('Contraseña');

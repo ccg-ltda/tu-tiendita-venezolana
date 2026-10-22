@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { productImageSrc } from '../../../utils/productImage';
 
 const emptyProduct = { name: '', category_id: '', subcategory_id: '', presentation: 'Unidad', price: '', inventory: '0', active: '1' };
 
@@ -7,7 +8,7 @@ export function ProductForm({ mode, product, categories, saving, error, errors, 
   const activeCategories = useMemo(() => (categories || []).filter((category) => category.active), [categories]);
   const availableSubcategories = useMemo(() => (activeCategories.find((category) => String(category.id) === String(values.category_id))?.subcategories || []).filter((subcategory) => subcategory.active), [activeCategories, values.category_id]);
   useEffect(() => { setValues(product ? { name: product.name || '', category_id: String(product.category_id || ''), subcategory_id: String(product.subcategory_id || ''), presentation: product.presentation || '', price: String(product.price ?? ''), inventory: String(product.inventory ?? 0), active: product.active ? '1' : '0' } : emptyProduct); setImageFile(null); setLocalErrors({}); }, [product, mode]);
-  useEffect(() => { if (!imageFile) { setPreviewUrl(imageUrl(product?.image)); return undefined; } const url = URL.createObjectURL(imageFile); setPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [imageFile, product?.image]);
+  useEffect(() => { if (!imageFile) { setPreviewUrl(productImageSrc(product)); return undefined; } const url = URL.createObjectURL(imageFile); setPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [imageFile, product?.image, product?.img]);
   const update = (field) => (event) => setValues((current) => field === 'category_id' ? { ...current, category_id: event.target.value, subcategory_id: '' } : { ...current, [field]: event.target.value });
   const submit = (event) => { event.preventDefault(); const next = {}; ['name','category_id','subcategory_id','presentation'].forEach((field) => { if (!String(values[field]).trim()) next[field] = 'Este campo es obligatorio.'; }); const price=Number(values.price), inventory=Number(values.inventory); if(!Number.isInteger(price)||price<1)next.price='Ingresa un precio entero igual o mayor a 1 COP.'; if(!Number.isInteger(inventory)||inventory<0)next.inventory='Ingresa un inventario entero igual o mayor a 0.'; setLocalErrors(next); if(Object.keys(next).length)return; onSubmit({...values,category_id:Number(values.category_id),subcategory_id:Number(values.subcategory_id),price,inventory,active:values.active==='1',expected_revision:product?.revision,image:imageFile}); };
   const fieldError = (field) => localErrors[field] || errors?.[field]?.[0];
@@ -15,4 +16,3 @@ export function ProductForm({ mode, product, categories, saving, error, errors, 
 }
 function Field({ label, error, ...props }) { return <label className='admin-product-form-field'><span>{label}</span><input {...props} aria-invalid={Boolean(error)} />{error && <small>{error}</small>}</label>; }
 function SelectField({ label, error, options, placeholder, ...props }) { return <label className='admin-product-form-field'><span>{label}</span><select {...props} aria-invalid={Boolean(error)}><option value=''>{placeholder}</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select>{error && <small>{error}</small>}</label>; }
-function imageUrl(image) { return !image ? '' : image.startsWith('http') || image.startsWith('/') ? image : `/${image}`; }
