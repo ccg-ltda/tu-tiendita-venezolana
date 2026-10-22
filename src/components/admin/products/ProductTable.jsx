@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ProductStatusBadge } from './ProductStatusBadge';
+import { productImageSrc } from '../../../utils/productImage';
 
 const priceFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
@@ -34,7 +35,7 @@ function ProductCard({ product, onEdit, onToggleStatus, statusChangingId }) {
 
 function ProductIdentity({ product }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const imagePath = product.image && (product.image.startsWith('http') || product.image.startsWith('/') ? product.image : `/${product.image}`);
+  const imagePath = productImageSrc(product);
 
   return <div className='admin-product-identity'>
     <span className='admin-product-thumbnail'>{imagePath && !imageFailed ? <img src={imagePath} alt='' loading='lazy' onError={() => setImageFailed(true)} /> : <span className='admin-product-thumbnail-fallback' aria-hidden='true' />}</span>

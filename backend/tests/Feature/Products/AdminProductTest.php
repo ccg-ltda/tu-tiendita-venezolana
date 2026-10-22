@@ -122,7 +122,8 @@ class AdminProductTest extends TestCase
 
     public function test_admin_update_with_image_returns_a_product_when_sync_is_successful(): void
     {
-        $path = '/assets/products/'.str_repeat('c', 32).'.jpg';
+        $path = '/storage/products/'.str_repeat('c', 32).'.jpg';
+        $url = 'https://api.tutienditavenezolana.com'.$path;
         $updated = $this->product(21, true, $path, '');
         $updated['revision'] = 2;
         $repository = Mockery::mock(MySqlProductRepository::class);
@@ -130,6 +131,7 @@ class AdminProductTest extends TestCase
         $repository->shouldReceive('syncStatus')->andReturn('synced');
         $images = Mockery::mock(ProductImageStore::class);
         $images->shouldReceive('store')->once()->andReturn($path);
+        $images->shouldReceive('publicUrl')->once()->with($path)->andReturn($url);
         $this->app->instance(MySqlProductRepository::class, $repository);
         $this->app->instance(ProductImageStore::class, $images);
 
@@ -139,12 +141,13 @@ class AdminProductTest extends TestCase
             'image' => $this->validPngUpload(),
         ]);
 
-        $response->assertOk()->assertJsonPath('product.id', 21)->assertJsonPath('product.image', $path)->assertJsonPath('sync_status', 'synced');
+        $response->assertOk()->assertJsonPath('product.id', 21)->assertJsonPath('product.image', $url)->assertJsonPath('sync_status', 'synced');
     }
 
     public function test_admin_update_with_image_reports_mysql_as_synced(): void
     {
-        $path = '/assets/products/'.str_repeat('d', 32).'.webp';
+        $path = '/storage/products/'.str_repeat('d', 32).'.webp';
+        $url = 'https://api.tutienditavenezolana.com'.$path;
         $updated = $this->product(21, true, $path, '');
         $updated['revision'] = 2;
         $repository = Mockery::mock(MySqlProductRepository::class);
@@ -152,6 +155,7 @@ class AdminProductTest extends TestCase
         $repository->shouldReceive('syncStatus')->andReturn('synced');
         $images = Mockery::mock(ProductImageStore::class);
         $images->shouldReceive('store')->once()->andReturn($path);
+        $images->shouldReceive('publicUrl')->once()->with($path)->andReturn($url);
         $this->app->instance(MySqlProductRepository::class, $repository);
         $this->app->instance(ProductImageStore::class, $images);
 
@@ -161,7 +165,76 @@ class AdminProductTest extends TestCase
             'image' => $this->validPngUpload(),
         ]);
 
-        $response->assertOk()->assertJsonPath('product.id', 21)->assertJsonPath('product.image', $path)->assertJsonPath('sync_status', 'synced');
+        $response->assertOk()->assertJsonPath('product.id', 21)->assertJsonPath('product.image', $url)->assertJsonPath('sync_status', 'synced');
+    }
+
+    public function test_admin_create_with_an_image_persists_the_new_storage_path(): void
+    {
+        $path = '/storage/products/'.str_repeat('e', 32).'.png';
+        $created = $this->product(22, true, $path, '');
+        $repository = Mockery::mock(MySqlProductRepository::class);
+        $repository->shouldReceive('create')->once()->with(Mockery::on(fn (array $input): bool => $input['image_path'] === $path))->andReturn($created);
+        $repository->shouldReceive('syncStatus')->once()->andReturn('synced');
+        $images = Mockery::mock(ProductImageStore::class);
+        $images->shouldReceive('store')->once()->andReturn($path);
+        $images->shouldReceive('publicUrl')->once()->with($path)->andReturn('https://api.tutienditavenezolana.com'.$path);
+        $this->app->instance(MySqlProductRepository::class, $repository);
+        $this->app->instance(ProductImageStore::class, $images);
+
+        $this->authenticatedAdmin()->post('/api/admin/products', [
+            'name' => 'Producto 22', 'category_id' => 1, 'subcategory_id' => 2, 'presentation' => 'Unidad',
+            'price' => 12000, 'inventory' => 7, 'active' => true, 'image' => $this->validPngUpload(),
+        ])->assertOk()->assertJsonPath('product.image', 'https://api.tutienditavenezolana.com'.$path);
+    }
+
+    public function test_admin_replacement_deletes_the_previous_new_image(): void
+    {
+        $oldPath = '/storage/products/'.str_repeat('a', 32).'.png';
+        $newPath = '/storage/products/'.str_repeat('b', 32).'.png';
+        $updated = $this->product(21, true, $newPath, '');
+        $updated['revision'] = 2;
+        $repository = Mockery::mock(MySqlProductRepository::class);
+        $repository->shouldReceive('findById')->once()->andReturn(['product' => $this->product(21, true, $oldPath, '')]);
+        $repository->shouldReceive('update')->once()->andReturn($updated);
+        $repository->shouldReceive('syncStatus')->once()->andReturn('synced');
+        $images = Mockery::mock(ProductImageStore::class);
+        $images->shouldReceive('store')->once()->andReturn($newPath);
+        $images->shouldReceive('isManagedPath')->once()->with($oldPath)->andReturnTrue();
+        $images->shouldReceive('forget')->once()->with($oldPath);
+        $images->shouldReceive('publicUrl')->once()->with($newPath)->andReturn('https://api.tutienditavenezolana.com'.$newPath);
+        $this->app->instance(MySqlProductRepository::class, $repository);
+        $this->app->instance(ProductImageStore::class, $images);
+
+        $this->authenticatedAdmin()->post('/api/admin/products/21', [
+            '_method' => 'PATCH', 'name' => 'Producto 21', 'category_id' => 1, 'subcategory_id' => 2,
+            'presentation' => 'Unidad', 'price' => 12000, 'inventory' => 8, 'expected_revision' => 1,
+            'image' => $this->validPngUpload(),
+        ])->assertOk();
+    }
+
+    public function test_admin_replacement_does_not_attempt_to_delete_a_legacy_image(): void
+    {
+        $legacyPath = '/assets/products/01.jpg';
+        $newPath = '/storage/products/'.str_repeat('c', 32).'.png';
+        $updated = $this->product(21, true, $newPath, '');
+        $updated['revision'] = 2;
+        $repository = Mockery::mock(MySqlProductRepository::class);
+        $repository->shouldReceive('findById')->once()->andReturn(['product' => $this->product(21, true, $legacyPath, '01')]);
+        $repository->shouldReceive('update')->once()->andReturn($updated);
+        $repository->shouldReceive('syncStatus')->once()->andReturn('synced');
+        $images = Mockery::mock(ProductImageStore::class);
+        $images->shouldReceive('store')->once()->andReturn($newPath);
+        $images->shouldReceive('isManagedPath')->once()->with($legacyPath)->andReturnFalse();
+        $images->shouldNotReceive('forget');
+        $images->shouldReceive('publicUrl')->once()->with($newPath)->andReturn('https://api.tutienditavenezolana.com'.$newPath);
+        $this->app->instance(MySqlProductRepository::class, $repository);
+        $this->app->instance(ProductImageStore::class, $images);
+
+        $this->authenticatedAdmin()->post('/api/admin/products/21', [
+            '_method' => 'PATCH', 'name' => 'Producto 21', 'category_id' => 1, 'subcategory_id' => 2,
+            'presentation' => 'Unidad', 'price' => 12000, 'inventory' => 8, 'expected_revision' => 1,
+            'image' => $this->validPngUpload(),
+        ])->assertOk();
     }
 
     /** @return list<string> */

@@ -1,4 +1,60 @@
 <?php
+
 namespace App\Services;
+
 use Illuminate\Http\UploadedFile;
-class ProductImageStore { public function store(UploadedFile $file): string { $mime=$file->getMimeType();$ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];if(!isset($ext[$mime])||@getimagesize($file->getRealPath())===false)throw new \InvalidArgumentException('Invalid product image.');$dir=dirname(base_path()).DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR.'products';if(is_link($dir)||(!is_dir($dir)&&!@mkdir($dir,0750,true))||is_link($dir))throw new \RuntimeException('Product image directory unavailable.');$name=bin2hex(random_bytes(16)).'.'.$ext[$mime];$file->move($dir,$name);@chmod($dir.DIRECTORY_SEPARATOR.$name,0640);return '/assets/products/'.$name; } public function forget(string $path):void {if(preg_match('#^/assets/products/[a-f0-9]{32}\.(jpg|png|webp)$#',$path)!==1)return;$file=dirname(base_path()).DIRECTORY_SEPARATOR.'public'.str_replace('/',DIRECTORY_SEPARATOR,$path);if(is_file($file)&&!is_link($file))@unlink($file);} }
+use Illuminate\Support\Facades\Storage;
+
+class ProductImageStore
+{
+    private const DIRECTORY = 'products';
+
+    public function store(UploadedFile $file): string
+    {
+        $mime = $file->getMimeType();
+        $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+
+        if (! isset($extensions[$mime]) || @getimagesize($file->getRealPath()) === false) {
+            throw new \InvalidArgumentException('Invalid product image.');
+        }
+
+        $filename = bin2hex(random_bytes(16)).'.'.$extensions[$mime];
+        $storedPath = Storage::disk('public')->putFileAs(self::DIRECTORY, $file, $filename, 'public');
+
+        if (! is_string($storedPath) || $storedPath === '') {
+            throw new \RuntimeException('Product image could not be stored.');
+        }
+
+        return '/storage/'.$storedPath;
+    }
+
+    public function forget(string $path): void
+    {
+        $storedPath = $this->storedPath($path);
+
+        if ($storedPath !== null) {
+            Storage::disk('public')->delete($storedPath);
+        }
+    }
+
+    public function isManagedPath(?string $path): bool
+    {
+        return $path !== null && $this->storedPath($path) !== null;
+    }
+
+    public function publicUrl(?string $path): ?string
+    {
+        $storedPath = $path === null ? null : $this->storedPath($path);
+
+        return $storedPath === null ? $path : Storage::disk('public')->url($storedPath);
+    }
+
+    private function storedPath(string $path): ?string
+    {
+        if (preg_match('#^/storage/products/[a-f0-9]{32}\.(jpg|png|webp)$#', $path) !== 1) {
+            return null;
+        }
+
+        return substr($path, strlen('/storage/'));
+    }
+}
