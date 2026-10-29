@@ -13,6 +13,15 @@
   a:focus-visible, button:focus-visible{outline:2px solid var(--red);outline-offset:2px;}
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
   h1,h2,h3{font-family:'Fraunces',serif;margin:0;letter-spacing:-0.01em;}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
+  /* PRODUCT DETAIL PAGE */
+  .product-detail{max-width:720px;margin:0 auto;padding:24px 16px 48px;display:block;}
+  .product-detail-card{display:flex;flex-direction:column;gap:10px;}
+  .product-detail-card h1{font-size:24px;}
+  .product-detail-card nav{font-size:13px;color:var(--ink-soft);}
+  .product-detail-card nav a{color:var(--navy);text-decoration:underline;}
+  .product-detail-img{max-width:360px;border-radius:12px;}
 
   /* ANNOUNCE */
   .announce{background:var(--navy);color:rgba(255,255,255,0.85);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.04em;text-align:center;padding:8px 16px;}

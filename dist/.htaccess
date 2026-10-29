@@ -13,6 +13,9 @@
   RewriteCond %{HTTPS} !=on
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # El blog ya no vive en React: redirige /blog al subdominio de Bunzy Blog Hosting.
+  RewriteRule ^blog/?(.*)$ https://blog.tutienditavenezolana.com/$1 [L,R=301]
+
   # Si la petición corresponde a un archivo o directorio real (assets, imágenes,
   # favicon.ico, etc.), sírvelo tal cual.
   RewriteCond %{REQUEST_FILENAME} -f [OR]

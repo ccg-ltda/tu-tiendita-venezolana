@@ -9,6 +9,9 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\ProductController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
+use App\Repositories\MySqlCategoryRepository;
+use App\Repositories\MySqlProductRepository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -17,6 +20,25 @@ Route::get('/', function () {
 
 Route::get('/api/products', [ProductController::class, 'index'])
     ->middleware('throttle:public-catalog');
+Route::get('/api/products/{slug}', [ProductController::class, 'show'])
+    ->where('slug', '[a-z0-9-]+')
+    ->middleware('throttle:public-catalog');
+
+Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCategoryRepository $categories) {
+    $data = Cache::remember('sitemap-xml-data', 3600, function () use ($products, $categories): array {
+        $activeProducts = array_values(array_filter(
+            $products->all(),
+            static fn (array $p): bool => $p['active'] === true && ($p['category_active'] ?? true) === true && ($p['subcategory_active'] ?? true) === true,
+        ));
+        $activeCategories = array_values(array_filter($categories->all(), static fn (array $c): bool => $c['active'] === true));
+
+        return ['products' => $activeProducts, 'categories' => $activeCategories];
+    });
+
+    return response()
+        ->view('sitemap', $data)
+        ->header('Content-Type', 'application/xml');
+})->middleware('throttle:public-catalog');
 Route::prefix('api/admin')
     ->middleware(EnsureAdminAuthenticated::class)
     ->group(function () {

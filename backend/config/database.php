@@ -20,9 +20,12 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            // Solo toca la constante PDO::MYSQL_ATTR_SSL_CA (deprecated en PHP 8.5)
+            // cuando realmente hay un CA configurado, para no emitir el warning
+            // en cada request cuando no se usa SSL (ej. desarrollo local).
+            'options' => extension_loaded('pdo_mysql') && env('MYSQL_ATTR_SSL_CA')
+                ? [PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')]
+                : [],
         ],
         'sqlite' => [
             'driver' => 'sqlite',

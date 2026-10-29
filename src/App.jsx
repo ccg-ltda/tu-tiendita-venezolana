@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import branding from './data/branding.json';
 import { policies } from './data/policies';
-import { unique, normalizeText } from './utils/catalog';
-import { api } from './services/api';
+import { buildCategories, unique, normalizeText } from './utils/catalog';
 import { Awning } from './components/layout/Awning';
 import { Header } from './components/layout/Header';
 import { CategoryNav } from './components/layout/CategoryNav';
@@ -15,104 +14,23 @@ import { Toast } from './components/cart/Toast';
 import { PolicyModal } from './components/common/PolicyModal';
 import { SeoHead } from './components/common/SeoHead';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
+import { useCatalog } from './hooks/useCatalog';
+import { useCart } from './hooks/useCart';
 import { Building2 } from 'lucide-react';
 
 export default function App() {
-  const [catalog, setCatalog] = useState([]);
-  const categories = useMemo(() => {
-    const current = catalog.filter((product) => product.active !== false);
-    const base = unique(current.map((product) => product.cat));
-    return current.some((product) => product.promotion?.active === true) ? ['Promociones', ...base] : base;
-  }, [catalog]);
+  const { catalog, loading, catalogError, loadProducts, setCatalogError } = useCatalog();
+  const categories = useMemo(() => buildCategories(catalog), [catalog]);
   const [activeCat, setActiveCat] = useState('');
   const [activeSub, setActiveSub] = useState('Todas');
   const [search, setSearch] = useState('');
-  const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('ttv-cart') || '{}'));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [toastProduct, setToastProduct] = useState(null);
   const [activePolicy, setActivePolicy] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState('');
-  const catalogLoaded = useRef(false);
-  const revalidationInFlight = useRef(false);
-  const lastRevalidationAt = useRef(0);
-
-
-  const loadProducts = async (silent = false) => {
-    try {
-      const result = await api.listProducts();
-      setCatalog(result.products);
-      catalogLoaded.current = true;
-      setCatalogError('');
-      return result.products;
-    } catch (error) {
-      if (!silent) setCatalogError(error.message);
-      throw error;
-    }
-  };
+  const { cart, cartItems, cartCount, total, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await loadProducts();
-      } catch {
-        // El error del catálogo ya es manejado por loadProducts.
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initialize();
-  }, []);
-
-  useEffect(() => {
-    const revalidateCatalog = async () => {
-      const now = Date.now();
-      if (!catalogLoaded.current || revalidationInFlight.current || now - lastRevalidationAt.current < 1000) return;
-
-      revalidationInFlight.current = true;
-      lastRevalidationAt.current = now;
-      try {
-        await loadProducts(true);
-      } catch {
-        // Conserva el catálogo actual durante un fallo transitorio de revalidación.
-      } finally {
-        revalidationInFlight.current = false;
-      }
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') revalidateCatalog();
-    };
-
-    window.addEventListener('focus', revalidateCatalog);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', revalidateCatalog);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, []);
-
-  useEffect(() => localStorage.setItem('ttv-cart', JSON.stringify(cart)), [cart]);
-  useEffect(() => setCart((current) => {
-    let changed = false;
-    const next = { ...current };
-    Object.entries(next).forEach(([id, quantity]) => {
-      const product = catalog.find((item) => item.id === Number(id));
-      const allowed = product?.active === false ? 0 : Math.min(quantity, Math.max(0, Number(product?.inventory) || 0));
-      if (allowed !== quantity) changed = true;
-      if (allowed > 0) next[id] = allowed; else delete next[id];
-    });
-    return changed ? next : current;
-  }), [catalog]);
-  useEffect(() => {
-    if (!toastProduct) return undefined;
-    const timer = setTimeout(() => setToastProduct(null), 2600);
-    return () => clearTimeout(timer);
-  }, [toastProduct]);
-  useEffect(() => {
-    if (categories.length && !categories.includes(activeCat)) setActiveCat(categories[0]);
+    if (categories.length && !categories.some((category) => category.name === activeCat)) setActiveCat(categories[0].name);
   }, [categories, activeCat]);
 
   const availableCatalog = catalog.filter((product) => product.active !== false);
@@ -125,21 +43,10 @@ export default function App() {
     ? availableCatalog.filter((product) => normalizeText(`${product.name} ${product.cat} ${product.sub} ${product.pres}`).includes(normalizeText(search.trim())))
     : categoryProducts.filter((product) => activeSub === 'Todas' || product.sub === activeSub);
   const title = search.trim() ? `Resultados para “${search.trim()}”` : `${activeCat}${activeSub === 'Todas' ? '' : ` · ${activeSub}`}`;
-  const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...catalog.find((product) => product.id === Number(id)), qty })).filter((item) => item.id && item.qty > 0 && item.active !== false);
-  const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
-  const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const selectCategory = (category) => { setActiveCat(category); setActiveSub('Todas'); setSearch(''); };
-  const setQuantity = (id, quantity) => setCart((current) => {
-    const product = catalog.find((item) => item.id === id);
-    const next = { ...current };
-    const safeQuantity = Math.min(Math.max(0, quantity), Math.max(0, Number(product?.inventory) || 0));
-    if (safeQuantity > 0) next[id] = safeQuantity; else delete next[id];
-    return next;
-  });
-  const addProduct = (product) => { if (!cart[product.id]) setQuantity(product.id, 1); setToastProduct(product); };
 
   const handlePaymentConfirmed = () => {
-    setCart({});
+    clearCart();
   };
 
   return (
@@ -152,6 +59,7 @@ export default function App() {
         openGraph={{ title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png', url: 'https://tutienditavenezolana.com/', type: 'website' }}
         twitter={{ card: 'summary_large_image', title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png' }}
       />
+      <h1 className='sr-only'>Tu Tiendita Venezolana — Productos venezolanos en Colombia</h1>
       <Awning />
       <Header
         cartCount={cartCount}

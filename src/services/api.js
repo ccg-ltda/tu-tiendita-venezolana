@@ -47,8 +47,7 @@ async function getCsrfToken() {
 export const api = {
   // Tienda pública: continúa temporalmente usando Express.
   listProducts: () => request('/api/products'),
-  listBlog: () => request('/api/blog'),
-  getBlogPost: (slug) => request(`/api/blog/${encodeURIComponent(slug)}`),
+  getProduct: (slug) => request(`/api/products/${encodeURIComponent(slug)}`),
 
   previewCoupon: ({ code, items }) => request('/api/checkout/coupon/preview', {
     method: 'POST',

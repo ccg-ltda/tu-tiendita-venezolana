@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Subcategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class ProductSeeder extends Seeder
@@ -30,16 +31,22 @@ class ProductSeeder extends Seeder
                 throw new RuntimeException("Missing subcategory [{$data['subcategory_slug']}] while seeding products.");
             }
 
+            $match = [
+                'category_id' => $categoryId,
+                'subcategory_id' => $subcategoryId,
+                'name' => $data['name'],
+                'presentation' => $data['presentation'],
+            ];
+            // El slug se genera solo al crear; en updates se conserva el existente
+            // para que no cambie la URL de un producto ya publicado.
+            $existingSlug = Product::query()->where($match)->value('slug');
+
             Product::query()->updateOrCreate(
-                [
-                    'category_id' => $categoryId,
-                    'subcategory_id' => $subcategoryId,
-                    'name' => $data['name'],
-                    'presentation' => $data['presentation'],
-                ],
+                $match,
                 [
                     'category' => $data['category'],
                     'subcategory' => $data['subcategory'],
+                    'slug' => $existingSlug ?? $this->slug($data['name']),
                     'price_cop' => $data['price_cop'],
                     'inventory' => $data['inventory'],
                     'active' => $data['active'],
@@ -49,6 +56,16 @@ class ProductSeeder extends Seeder
                 ],
             );
         }
+    }
+
+    private function slug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'producto';
+        $slug = $base;
+        $suffix = 2;
+        while (Product::query()->where('slug', $slug)->exists()) $slug = $base.'-'.($suffix++);
+
+        return $slug;
     }
 
     private function products(): array

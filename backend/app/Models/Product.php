@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Product extends Model
 {
     protected $connection = 'mysql';
-    protected $fillable = ['id', 'category_id', 'subcategory_id', 'category', 'subcategory', 'name', 'presentation', 'price_cop', 'inventory', 'active', 'image_path', 'legacy_img', 'revision'];
+    protected $fillable = ['id', 'category_id', 'subcategory_id', 'category', 'subcategory', 'name', 'slug', 'presentation', 'price_cop', 'inventory', 'active', 'image_path', 'legacy_img', 'revision'];
     protected function casts(): array { return ['id' => 'integer', 'category_id' => 'integer', 'subcategory_id' => 'integer', 'price_cop' => 'integer', 'inventory' => 'integer', 'active' => 'boolean', 'revision' => 'integer']; }
     public function categoryRelation(): BelongsTo { return $this->belongsTo(Category::class, 'category_id'); }
     public function subcategoryRelation(): BelongsTo { return $this->belongsTo(Subcategory::class, 'subcategory_id'); }

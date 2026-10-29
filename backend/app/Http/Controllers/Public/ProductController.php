@@ -41,6 +41,25 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Return a single active product by its slug (used by /producto/:slug).
+     */
+    public function show(string $slug, MySqlProductRepository $products, MySqlProductPromotionRepository $promotions, ProductPromotionPriceResolver $prices): JsonResponse
+    {
+        $found = $products->findBySlug($slug);
+        $product = $found['product'] ?? null;
+        if ($product === null || $product['active'] !== true || $product['category_active'] !== true || $product['subcategory_active'] !== true) {
+            return response()->json(['message' => 'Producto no encontrado.'], 404);
+        }
+
+        $promotion = $promotions->byProductIds([$product['product_id']])[$product['product_id']] ?? null;
+        if ($promotion !== null) $product['promotion'] = $promotion;
+
+        return response()->json([
+            'product' => $this->publicProduct($product, $prices),
+        ]);
+    }
+
     /** @param array<string,mixed> $product @return array<string,mixed> */
     private function publicProduct(array $product, ProductPromotionPriceResolver $prices): array
     {
@@ -48,6 +67,7 @@ class ProductController extends Controller
         $public = [
             'id' => $product['product_id'], 'img' => $product['legacy_img'], 'cat' => $product['category'],
             'sub' => $product['subcategory'], 'name' => $product['name'], 'pres' => $product['presentation'],
+            'slug' => $product['slug'], 'catSlug' => $product['category_slug'],
             'price' => $price['effective_price_cop'], 'image' => $this->images->publicUrl($product['image_path']),
             'inventory' => $product['inventory'], 'active' => $product['active'],
         ];

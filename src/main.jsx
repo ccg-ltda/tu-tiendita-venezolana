@@ -10,8 +10,8 @@ import { AdminCouponsPage } from './pages/admin/coupons/AdminCouponsPage';
 import { AdminOrdersPage } from './pages/admin/orders/AdminOrdersPage';
 import { AdminActivityPage } from './pages/admin/activity/AdminActivityPage';
 import { AdminDataProvider } from './context/AdminDataContext';
-import { BlogListPage } from './pages/BlogListPage';
-import { BlogPostPage } from './pages/BlogPostPage';
+import { CategoryPage } from './pages/CategoryPage';
+import { ProductPage } from './pages/ProductPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SeoHead } from './components/common/SeoHead';
 import { ScrollToTop } from './components/common/ScrollToTop';
@@ -24,8 +24,8 @@ createRoot(document.getElementById('root')).render(
       <ScrollToTop />
       <Routes>
         <Route path='/' element={<App />} />
-        <Route path='/blog' element={<BlogListPage />} />
-        <Route path='/blog/:slug' element={<BlogPostPage />} />
+        <Route path='/categoria/:slug' element={<CategoryPage />} />
+        <Route path='/producto/:slug' element={<ProductPage />} />
         <Route path='/admin/login' element={<><SeoHead title='Administración | Tu Tiendita Venezolana' robots='noindex,nofollow' /><AdminLoginPage /></>} />
         <Route path='/admin' element={<AdminDataProvider><SeoHead title='Administración | Tu Tiendita Venezolana' robots='noindex,nofollow' /><AdminLayout /></AdminDataProvider>}>
           <Route index element={<AdminDashboardPage />} />
