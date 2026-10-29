@@ -35,9 +35,21 @@ Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCate
         return ['products' => $activeProducts, 'categories' => $activeCategories];
     });
 
-    return response()
-        ->view('sitemap', $data)
-        ->header('Content-Type', 'application/xml');
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
+    $xml .= '<url><loc>https://tutienditavenezolana.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>'."\n";
+    foreach ($data['categories'] as $category) {
+        $loc = 'https://tutienditavenezolana.com/categoria/'.rawurlencode($category['slug']);
+        $xml .= "<url><loc>{$loc}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n";
+    }
+    foreach ($data['products'] as $product) {
+        $loc = 'https://tutienditavenezolana.com/producto/'.rawurlencode($product['slug']);
+        $lastmod = htmlspecialchars((string) $product['updated_at'], ENT_XML1);
+        $xml .= "<url><loc>{$loc}</loc><lastmod>{$lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>\n";
+    }
+    $xml .= '</urlset>';
+
+    return response($xml, 200, ['Content-Type' => 'application/xml']);
 })->middleware('throttle:public-catalog');
 Route::prefix('api/admin')
     ->middleware(EnsureAdminAuthenticated::class)
