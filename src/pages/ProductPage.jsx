@@ -41,6 +41,24 @@ export function ProductPage() {
   const pageDescription = product ? `${product.name} — Compra en Colombia. ${product.pres}. Envíos desde Bogotá para toda Colombia.` : '';
   const canonical = `https://tutienditavenezolana.com/producto/${slug}`;
   const ogImage = product && imageSrc ? (imageSrc.startsWith('http') ? imageSrc : `https://tutienditavenezolana.com${imageSrc}`) : 'https://tutienditavenezolana.com/assets/banner.png';
+  const jsonLd = product ? {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: ogImage,
+    description: pageDescription,
+    offers: {
+      '@type': 'Offer',
+      url: canonical,
+      priceCurrency: 'COP',
+      price: String(product.price),
+      availability: outOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'CO' },
+      },
+    },
+  } : null;
 
   return (
     <div>
@@ -51,6 +69,7 @@ export function ProductPage() {
         robots='index,follow'
         openGraph={{ title: `${product.name} — Compra en Colombia`, description: pageDescription, image: ogImage, url: canonical, type: 'product' }}
         twitter={{ card: 'summary_large_image', title: `${product.name} — Compra en Colombia`, description: pageDescription, image: ogImage }}
+        jsonLd={jsonLd}
       />}
       <Awning />
       <Header cartCount={cartCount} onCartOpen={() => setDrawerOpen(true)} search='' onSearch={() => {}} homeHref='/' showSearch={false} />
@@ -61,7 +80,7 @@ export function ProductPage() {
           <article className='product-detail-card'>
             <h1>{product.name}</h1>
             <nav aria-label='Categoría'><Link to={`/categoria/${product.catSlug}`}>{product.cat}</Link> · {product.sub}</nav>
-            <div className='card-img product-detail-img'>{imageSrc ? <img src={imageSrc} alt={product.name} /> : <span className='product-placeholder'><Package size={48} aria-hidden='true' /></span>}{outOfStock && <div className='stock-badge'>Agotado</div>}</div>
+            <div className='card-img product-detail-img'>{imageSrc ? <img src={imageSrc} alt={product.name} width='600' height='600' /> : <span className='product-placeholder'><Package size={48} aria-hidden='true' /></span>}{outOfStock && <div className='stock-badge'>Agotado</div>}</div>
             <div className='card-pres'>{product.pres}</div>
             {promotion ? <div className='card-price promotion-price'><del>{formatPrice(promotion.originalPrice)}</del><strong>{formatPrice(product.price)}</strong></div> : <div className='card-price'>{formatPrice(product.price)}</div>}
             <div className='card-stock'>{outOfStock ? 'Sin unidades disponibles' : 'Disponible'}</div>

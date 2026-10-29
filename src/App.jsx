@@ -49,6 +49,17 @@ export default function App() {
     clearCart();
   };
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'OnlineStore',
+    name: 'Tu Tiendita Venezolana',
+    url: 'https://tutienditavenezolana.com',
+    logo: 'https://tutienditavenezolana.com/assets/logo.png',
+    address: { '@type': 'PostalAddress', addressLocality: 'Bogotá', addressCountry: 'CO' },
+    areaServed: 'CO',
+    // TODO: agregar sameAs con las URLs reales de Instagram/Facebook cuando se definan.
+  };
+
   return (
     <div id='inicio'>
       <SeoHead
@@ -58,6 +69,7 @@ export default function App() {
         robots='index,follow'
         openGraph={{ title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png', url: 'https://tutienditavenezolana.com/', type: 'website' }}
         twitter={{ card: 'summary_large_image', title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png' }}
+        jsonLd={jsonLd}
       />
       <h1 className='sr-only'>Tu Tiendita Venezolana — Productos venezolanos en Colombia</h1>
       <Awning />
@@ -67,7 +79,7 @@ export default function App() {
         search={search}
         onSearch={setSearch}
       />
-      <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' /></div>
+      <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1200' height='400' /></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
