@@ -13,6 +13,11 @@
   RewriteCond %{HTTPS} !=on
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # www -> dominio apex (canónico). El backend solo permite ese origen en
+  # CORS, y www.* es un origin distinto: sin esto el catálogo no carga ahí.
+  RewriteCond %{HTTP_HOST} ^www\.tutienditavenezolana\.com$ [NC]
+  RewriteRule ^ https://tutienditavenezolana.com%{REQUEST_URI} [L,R=301]
+
   # El blog ya no vive en React: redirige /blog al subdominio de Bunzy Blog Hosting.
   RewriteRule ^blog/?(.*)$ https://blog.tutienditavenezolana.com/$1 [L,R=301]
 
