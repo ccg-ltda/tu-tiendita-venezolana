@@ -95,6 +95,27 @@ Desde la raíz:
 npm run build
 ```
 
+`npm run build` corre `vite build` y, como `postbuild`, el script
+`scripts/prerender.mjs`: levanta `dist/` con un servidor estático local y
+visita con Chrome headless (Puppeteer) cada ruta del catálogo (`/`,
+`/categoria/:slug`, `/producto/:slug`) leyendo el catálogo real desde
+`https://api.tutienditavenezolana.com` (o `PRERENDER_API_URL` para apuntar a
+otro backend), dejando un `index.html` estático por ruta para SEO. Tarda
+varios minutos (recorre todo el catálogo) — es necesario correrlo en cada
+cambio de productos/categorías para que `/sitemap.xml` y el contenido
+pre-renderizado no queden desactualizados.
+
+## Despliegue del frontend
+
+El build se hace en local (no hay Node en el hosting) y `dist/` se versiona
+en git. En el servidor, el documento raíz del dominio es
+`~/public_html/tu-tiendita-venezolana/dist/` (no la carpeta padre):
+
+```text
+git pull origin main
+cp -a dist/. ~/public_html/tu-tiendita-venezolana/dist/
+```
+
 ## Integraciones
 
 - Wompi: configure las claves y secretos únicamente en `backend/.env`.

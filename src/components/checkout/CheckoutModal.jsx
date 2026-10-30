@@ -157,6 +157,14 @@ export function CheckoutModal({ open, items, total, onClose, onPaymentConfirmed 
     clearStatusCheck();
     statusToken.current = null;
     idempotencyKey.current = null;
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', 'purchase', {
+        transaction_id: reference,
+        value: couponPreview?.total_cop ?? total,
+        currency: 'COP',
+        items: items.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.qty })),
+      });
+    }
     onPaymentConfirmed();
     showStatusResult('APPROVED');
   };
