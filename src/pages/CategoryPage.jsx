@@ -56,8 +56,8 @@ export function CategoryPage() {
         description={pageDescription}
         canonical={canonical}
         robots='index,follow'
-        openGraph={{ title: pageTitle, description: pageDescription, image: 'https://tutienditavenezolana.com/assets/banner.png', url: canonical, type: 'website' }}
-        twitter={{ card: 'summary_large_image', title: pageTitle, description: pageDescription, image: 'https://tutienditavenezolana.com/assets/banner.png' }}
+        openGraph={{ title: pageTitle, description: pageDescription, image: 'https://tutienditavenezolana.com/assets/banner.webp', url: canonical, type: 'website' }}
+        twitter={{ card: 'summary_large_image', title: pageTitle, description: pageDescription, image: 'https://tutienditavenezolana.com/assets/banner.webp' }}
       />}
       {categoryName && <h1 className='sr-only'>{categoryName} venezolanos — Compra online con envío desde Bogotá</h1>}
       <Awning />

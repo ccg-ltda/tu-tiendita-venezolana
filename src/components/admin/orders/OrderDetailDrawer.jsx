@@ -90,7 +90,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
         {!loading && !error && order && (
           <article className='order-print-summary' aria-label='Recibo de pedido'>
             <header className='order-receipt-header'>
-              <img src='/assets/logo.png' alt='Tu Tiendita Venezolana' />
+              <img src='/assets/logo.webp' alt='Tu Tiendita Venezolana' />
               <div>
                 <strong>Tu Tiendita Venezolana</strong>
                 <h1>RECIBO DE PEDIDO</h1>

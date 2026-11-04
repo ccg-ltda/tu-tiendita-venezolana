@@ -54,7 +54,7 @@ export default function App() {
     '@type': 'OnlineStore',
     name: 'Tu Tiendita Venezolana',
     url: 'https://tutienditavenezolana.com',
-    logo: 'https://tutienditavenezolana.com/assets/logo.png',
+    logo: 'https://tutienditavenezolana.com/assets/logo.webp',
     address: { '@type': 'PostalAddress', addressLocality: 'Bogotá', addressCountry: 'CO' },
     areaServed: 'CO',
     // TODO: agregar sameAs con las URLs reales de Instagram/Facebook cuando se definan.
@@ -67,8 +67,8 @@ export default function App() {
         description='Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.'
         canonical='https://tutienditavenezolana.com/'
         robots='index,follow'
-        openGraph={{ title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png', url: 'https://tutienditavenezolana.com/', type: 'website' }}
-        twitter={{ card: 'summary_large_image', title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.png' }}
+        openGraph={{ title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.webp', url: 'https://tutienditavenezolana.com/', type: 'website' }}
+        twitter={{ card: 'summary_large_image', title: 'Productos venezolanos en Colombia | Tu Tiendita Venezolana', description: 'Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia.', image: 'https://tutienditavenezolana.com/assets/banner.webp' }}
         jsonLd={jsonLd}
       />
       <h1 className='sr-only'>Tu Tiendita Venezolana — Productos venezolanos en Colombia</h1>

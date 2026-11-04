@@ -40,7 +40,7 @@ export function ProductPage() {
   const pageTitle = product ? `${product.name} — $${Math.round(product.price).toLocaleString('es-CO')} | Tu Tiendita Venezolana` : 'Producto | Tu Tiendita Venezolana';
   const pageDescription = product ? `${product.name} — Compra en Colombia. ${product.pres}. Envíos desde Bogotá para toda Colombia.` : '';
   const canonical = `https://tutienditavenezolana.com/producto/${slug}`;
-  const ogImage = product && imageSrc ? (imageSrc.startsWith('http') ? imageSrc : `https://tutienditavenezolana.com${imageSrc}`) : 'https://tutienditavenezolana.com/assets/banner.png';
+  const ogImage = product && imageSrc ? (imageSrc.startsWith('http') ? imageSrc : `https://tutienditavenezolana.com${imageSrc}`) : 'https://tutienditavenezolana.com/assets/banner.webp';
   const jsonLd = product ? {
     '@context': 'https://schema.org',
     '@type': 'Product',
