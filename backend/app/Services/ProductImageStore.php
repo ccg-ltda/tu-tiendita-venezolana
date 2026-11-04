@@ -26,7 +26,7 @@ class ProductImageStore
             throw new \InvalidArgumentException('Invalid product image.');
         }
 
-        $webp = $this->toWebp($file);
+        $webp = $this->toWebp($file->getRealPath());
         $filename = bin2hex(random_bytes(16)).'.webp';
         $storedPath = Storage::disk('public')->put(self::DIRECTORY.'/'.$filename, $webp, 'public');
 
@@ -38,10 +38,36 @@ class ProductImageStore
     }
 
     /**
+     * Reconvierte una imagen ya guardada (jpg/png de antes de la migración a
+     * WebP) a .webp, borra el archivo viejo y devuelve el nuevo path público.
+     * Usado por el comando products:convert-images-webp (one-off, retroactivo).
+     *
+     * @throws \RuntimeException si $path no es una imagen gestionada por esta clase
+     */
+    public function reconvertToWebp(string $path): string
+    {
+        $storedPath = $this->storedPath($path);
+        if ($storedPath === null) {
+            throw new \RuntimeException("Path no gestionado: {$path}");
+        }
+        if (str_ends_with($storedPath, '.webp')) {
+            return $path;
+        }
+
+        $absolutePath = Storage::disk('public')->path($storedPath);
+        $webp = $this->toWebp($absolutePath);
+        $filename = bin2hex(random_bytes(16)).'.webp';
+        Storage::disk('public')->put(self::DIRECTORY.'/'.$filename, $webp, 'public');
+        Storage::disk('public')->delete($storedPath);
+
+        return '/storage/'.self::DIRECTORY.'/'.$filename;
+    }
+
+    /**
      * Convierte a WebP y baja la calidad en pasos hasta caber en MAX_BYTES,
      * sin bajar de MIN_QUALITY (evita destruir la imagen por quedar liviana).
      */
-    private function toWebp(UploadedFile $file): string
+    private function toWebp(string $absolutePath): string
     {
         $manager = new ImageManager(match (true) {
             extension_loaded('gd') => new GdDriver(),
@@ -49,7 +75,7 @@ class ProductImageStore
             default => throw new \RuntimeException('No hay driver de imagenes (gd/imagick) disponible en este servidor.'),
         });
 
-        $image = $manager->read($file->getRealPath());
+        $image = $manager->read($absolutePath);
 
         for ($quality = self::STARTING_QUALITY; $quality >= self::MIN_QUALITY; $quality -= 10) {
             $encoded = (string) $image->toWebp($quality);
