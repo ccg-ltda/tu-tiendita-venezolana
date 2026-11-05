@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import branding from './data/branding.json';
 import { policies } from './data/policies';
 import { buildCategories, unique, normalizeText } from './utils/catalog';
@@ -13,10 +13,13 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { Toast } from './components/cart/Toast';
 import { PolicyModal } from './components/common/PolicyModal';
 import { SeoHead } from './components/common/SeoHead';
-import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { useCatalog } from './hooks/useCatalog';
 import { useCart } from './hooks/useCart';
 import { Building2 } from 'lucide-react';
+
+// El checkout (widget de Wompi incluido) no hace falta hasta que se abre:
+// separarlo del bundle inicial del catalogo ayuda al peso de carga (PageSpeed).
+const CheckoutModal = lazy(() => import('./components/checkout/CheckoutModal').then((m) => ({ default: m.CheckoutModal })));
 
 export default function App() {
   const { catalog, loading, catalogError, loadProducts, setCatalogError } = useCatalog();
@@ -88,7 +91,7 @@ export default function App() {
       <Footer categories={categories} onCategory={selectCategory} onPolicy={(key) => setActivePolicy(policies[key])} />
       <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
       <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      <CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} />
+      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>

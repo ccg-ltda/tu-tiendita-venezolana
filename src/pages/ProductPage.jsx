@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Package } from 'lucide-react';
 import { policies } from '../data/policies';
@@ -12,11 +12,12 @@ import { CartDrawer } from '../components/cart/CartDrawer';
 import { Toast } from '../components/cart/Toast';
 import { PolicyModal } from '../components/common/PolicyModal';
 import { SeoHead } from '../components/common/SeoHead';
-import { CheckoutModal } from '../components/checkout/CheckoutModal';
 import { NotFoundPage } from './NotFoundPage';
 import { useCatalog } from '../hooks/useCatalog';
 import { useCart } from '../hooks/useCart';
 import { buildCategories } from '../utils/catalog';
+
+const CheckoutModal = lazy(() => import('../components/checkout/CheckoutModal').then((m) => ({ default: m.CheckoutModal })));
 
 export function ProductPage() {
   const { slug } = useParams();
@@ -94,7 +95,7 @@ export function ProductPage() {
       <TrustStrip />
       <Footer categories={categories} onCategory={() => {}} onPolicy={(key) => setActivePolicy(policies[key])} />
       <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      <CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} />
+      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>

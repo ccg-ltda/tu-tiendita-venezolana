@@ -1,0 +1,1 @@
+var e=e=>({PENDING:`Pendiente`,PROCESSING:`En preparación`,READY:`Listo`,SHIPPED:`En camino`,DELIVERED:`Entregado`,CANCELLED:`Cancelado`,PAYMENT_REVIEW_REQUIRED:`Pago en revisión`})[e]||e;export{e as t};
