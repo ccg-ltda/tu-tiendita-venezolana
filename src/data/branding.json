@@ -1,4 +1,4 @@
 {
-  "logo": "assets/logo.webp",
-  "banner": "assets/banner.webp"
+  "logo": "/assets/logo.webp",
+  "banner": "/assets/banner.webp"
 }
