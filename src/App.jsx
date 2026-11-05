@@ -82,7 +82,7 @@ export default function App() {
         search={search}
         onSearch={setSearch}
       />
-      <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1200' height='400' /></div>
+      <div className='banner-wrap'><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1200' height='400' fetchPriority='high' /></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
