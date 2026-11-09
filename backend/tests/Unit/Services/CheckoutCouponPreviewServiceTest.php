@@ -48,7 +48,8 @@ class CheckoutCouponPreviewServiceTest extends TestCase
         $this->assertSame(29000, $preview['subtotal_cop']);
         $this->assertSame(20000, $preview['eligible_subtotal_cop']);
         $this->assertSame(2000, $preview['coupon_discount_cop']);
-        $this->assertSame(27000, $preview['total_cop']);
+        $this->assertSame(15000, $preview['shipping_cop']);
+        $this->assertSame(42000, $preview['total_cop']);
         $this->assertSame(9000, $preview['excluded_promotional_subtotal_cop']);
     }
 
@@ -57,7 +58,7 @@ class CheckoutCouponPreviewServiceTest extends TestCase
         [$service] = $this->service([$this->coupon(['discount_type' => 'fixed', 'discount_value' => 50000])]);
         $preview = $service->preview('BIENVENIDA10', [['id' => 1, 'qty' => 1]], $this->now());
         $this->assertSame(20000, $preview['coupon_discount_cop']);
-        $this->assertSame(0, $preview['total_cop']);
+        $this->assertSame(15000, $preview['total_cop']);
     }
 
     #[DataProvider('rejectedCoupons')]

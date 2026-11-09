@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { shippingCost } from '../utils/shipping';
 
 /** Cart state shared by the home page and standalone category/product pages. */
 export function useCart(catalog) {
@@ -38,6 +39,8 @@ export function useCart(catalog) {
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...catalog.find((product) => product.id === Number(id)), qty })).filter((item) => item.id && item.qty > 0 && item.active !== false);
   const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const shipping = cartItems.length ? shippingCost(total) : 0;
+  const grandTotal = total + shipping;
 
-  return { cart, cartItems, cartCount, total, toastProduct, setQuantity, addProduct, setToastProduct, clearCart: () => setCart({}) };
+  return { cart, cartItems, cartCount, total, shipping, grandTotal, toastProduct, setQuantity, addProduct, setToastProduct, clearCart: () => setCart({}) };
 }

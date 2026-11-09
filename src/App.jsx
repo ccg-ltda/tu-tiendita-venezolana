@@ -30,7 +30,7 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [activePolicy, setActivePolicy] = useState(null);
-  const { cart, cartItems, cartCount, total, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
+  const { cart, cartItems, cartCount, total, shipping, grandTotal, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
 
   useEffect(() => {
     if (categories.length && !categories.some((category) => category.name === activeCat)) setActiveCat(categories[0].name);
@@ -90,8 +90,8 @@ export default function App() {
       <TrustStrip />
       <Footer categories={categories} onCategory={selectCategory} onPolicy={(key) => setActivePolicy(policies[key])} />
       <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
-      <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} /></Suspense>}
+      <CartDrawer open={drawerOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
+      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>

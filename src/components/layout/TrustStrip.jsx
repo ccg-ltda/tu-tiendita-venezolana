@@ -2,7 +2,7 @@ import { CreditCard, Truck } from 'lucide-react';
 
 export function TrustStrip() {
   const items = [
-    [Truck, 'Envíos a toda Colombia', 'Bogotá: 24h hábiles. Resto del país: 3 a 7 días hábiles.'],
+    [Truck, 'Envíos a toda Colombia', 'Bogotá: 24 a 48h hábiles. Resto del país: 3 a 7 días hábiles.'],
     [CreditCard, 'Pago seguro en línea', 'Pasarela Wompi. También aceptamos transferencias.'],
     [null, 'Productos venezolanos', 'Marcas originales y productos seleccionados.'],
   ];

@@ -23,7 +23,7 @@ const CheckoutModal = lazy(() => import('../components/checkout/CheckoutModal').
 export function CategoryPage() {
   const { slug } = useParams();
   const { catalog, loading, catalogError, loadProducts, setCatalogError } = useCatalog();
-  const { cart, cartItems, cartCount, total, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
+  const { cart, cartItems, cartCount, total, shipping, grandTotal, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
   const [activeSub, setActiveSub] = useState('Todas');
   const [search, setSearch] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -70,8 +70,8 @@ export function CategoryPage() {
       {!loading && !catalogError && <main className='main' id='catalogo'><Sidebar category={categoryName} subcategories={subcategories} activeSub={activeSub} counts={subCounts} onSelect={(sub) => { setActiveSub(sub); setSearch(''); }} /><ProductGrid title={title} products={visibleProducts} cart={cart} onQuantity={setQuantity} onAdd={addProduct} /></main>}
       <TrustStrip />
       <Footer categories={categories} onCategory={() => {}} onPolicy={(key) => setActivePolicy(policies[key])} />
-      <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
+      <CartDrawer open={drawerOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
+      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>

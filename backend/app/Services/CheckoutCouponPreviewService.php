@@ -12,6 +12,9 @@ use DateTimeInterface;
 /** Read-only current-cart pricing and coupon evaluation for the public checkout. */
 final class CheckoutCouponPreviewService
 {
+    private const SHIPPING_FEE_COP = 15000;
+    private const FREE_SHIPPING_THRESHOLD_COP = 500000;
+
     public function __construct(
         private readonly MySqlProductRepository $products,
         private readonly MySqlProductPromotionRepository $promotions,
@@ -53,13 +56,15 @@ final class CheckoutCouponPreviewService
 
         $evaluation = $this->coupons->evaluate($code, $eligibleSubtotal, $now);
         $discount = $evaluation['discount_cop'];
+        $shipping = $subtotal >= self::FREE_SHIPPING_THRESHOLD_COP ? 0 : self::SHIPPING_FEE_COP;
         return [
             'ok' => true,
             'coupon' => ['code' => $evaluation['coupon']['code'], 'discount_type' => $evaluation['coupon']['discount_type'], 'discount_value' => $evaluation['coupon']['discount_value']],
             'subtotal_cop' => $subtotal,
             'eligible_subtotal_cop' => $eligibleSubtotal,
             'coupon_discount_cop' => $discount,
-            'total_cop' => $subtotal - $discount,
+            'shipping_cop' => $shipping,
+            'total_cop' => $subtotal - $discount + $shipping,
             'excluded_promotional_subtotal_cop' => $subtotal - $eligibleSubtotal,
         ];
     }

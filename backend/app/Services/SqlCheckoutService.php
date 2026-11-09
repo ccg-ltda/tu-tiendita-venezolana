@@ -30,6 +30,8 @@ final class SqlCheckoutService
 {
     private const RESERVATION_MINUTES = 10;
     private const RELEASE_GRACE_MINUTES = 10;
+    private const SHIPPING_FEE_COP = 15000;
+    private const FREE_SHIPPING_THRESHOLD_COP = 500000;
 
     public function __construct(
         private readonly CheckoutPayloadCanonicalizer $canonicalizer,
@@ -86,6 +88,7 @@ final class SqlCheckoutService
                     if (! $pricing['has_active_promotion']) $eligibleSubtotal += $subtotal;
                     $lines[] = compact('product', 'pricing', 'subtotal') + ['quantity' => $item['quantity']];
                 }
+                $shipping = $total >= self::FREE_SHIPPING_THRESHOLD_COP ? 0 : self::SHIPPING_FEE_COP;
 
                 // A temporary reference is unobservable: it is replaced before
                 // the transaction commits once AUTO_INCREMENT has assigned id.
@@ -106,7 +109,8 @@ final class SqlCheckoutService
                     'city' => $checkout['customer']['city'],
                     'region' => $checkout['customer']['region'],
                     'postal' => $checkout['customer']['postal'],
-                    'total_cop' => $total,
+                    'total_cop' => $total + $shipping,
+                    'shipping_cop' => $shipping,
                     'revision' => 1,
                 ]);
                 $order->reference = $this->references->generate($order->id, $now);
@@ -115,7 +119,7 @@ final class SqlCheckoutService
                     $total -= $coupon['discount_cop'];
                     if ($total < 0) throw new CheckoutReservationPlanningException('INVALID_REQUEST');
                 }
-                $order->total_cop = $total;
+                $order->total_cop = $total + $shipping;
                 $order->status = 'PENDING';
                 $order->save();
 
@@ -292,7 +296,7 @@ final class SqlCheckoutService
     {
         $order = Order::query()->with(['items', 'payments'])->find($orderId);
         if ($order === null) return null;
-        return ['id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'payment_flow_status' => $order->paymentFlowStatus(), 'paid_at' => $this->iso($order->paid_at), 'payment' => null, 'customer_name' => $order->customer_name, 'customer_email' => $order->customer_email, 'customer_phone' => $order->customer_phone, 'customer_document' => $order->customer_document, 'address' => $order->address, 'extra' => $order->extra, 'city' => $order->city, 'region' => $order->region, 'postal' => $order->postal, 'total' => $order->total_cop, 'created_at' => $this->iso($order->created_at), 'items' => $order->items->map(fn (OrderItem $item): array => ['id' => $item->id, 'product_id' => $item->product_id, 'product_name' => $item->product_name, 'unit_price' => $item->unit_price_cop, 'quantity' => $item->quantity])->all()];
+        return ['id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'payment_flow_status' => $order->paymentFlowStatus(), 'paid_at' => $this->iso($order->paid_at), 'payment' => null, 'customer_name' => $order->customer_name, 'customer_email' => $order->customer_email, 'customer_phone' => $order->customer_phone, 'customer_document' => $order->customer_document, 'address' => $order->address, 'extra' => $order->extra, 'city' => $order->city, 'region' => $order->region, 'postal' => $order->postal, 'total' => $order->total_cop, 'shipping' => $order->shipping_cop, 'created_at' => $this->iso($order->created_at), 'items' => $order->items->map(fn (OrderItem $item): array => ['id' => $item->id, 'product_id' => $item->product_id, 'product_name' => $item->product_name, 'unit_price' => $item->unit_price_cop, 'quantity' => $item->quantity])->all()];
     }
 
     /** @return array{ok:bool,data?:array<string,mixed>,error?:array{code:string}} */
@@ -323,7 +327,7 @@ final class SqlCheckoutService
 
     private function prepared(Order $order, bool $replayed): array
     {
-        return ['order_id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'reservation_expires_at' => $this->iso($order->reservation_expires_at), 'total_cop' => $order->total_cop, 'created_at' => $this->iso($order->created_at), 'revision' => $order->revision, 'idempotency_replayed' => $replayed];
+        return ['order_id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'reservation_expires_at' => $this->iso($order->reservation_expires_at), 'total_cop' => $order->total_cop, 'shipping_cop' => $order->shipping_cop, 'created_at' => $this->iso($order->created_at), 'revision' => $order->revision, 'idempotency_replayed' => $replayed];
     }
 
     private function effectivePrice(int $basePrice, ?array $promotion, \DateTimeInterface $now): array
@@ -367,7 +371,7 @@ final class SqlCheckoutService
         return ['order_id' => $order->id, 'reference' => $order->reference, 'customer_name' => $order->customer_name,
             'customer_email' => $order->customer_email, 'customer_phone' => $order->customer_phone,
             'address' => $order->address, 'extra' => $order->extra, 'city' => $order->city,
-            'total_cop' => $order->total_cop, 'status' => $order->status,
+            'total_cop' => $order->total_cop, 'shipping_cop' => $order->shipping_cop, 'status' => $order->status,
             'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status,
             'items' => $items];
     }

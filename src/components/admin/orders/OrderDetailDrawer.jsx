@@ -32,6 +32,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                   <div><dt>Estado operativo</dt><dd><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></dd></div>
                   <div><dt>Reserva</dt><dd>{order.reservation_status}</dd></div>
                   <div><dt>Fecha</dt><dd>{formatDate(order.created_at)}</dd></div>
+                  <div><dt>Envío</dt><dd>{order.shipping ? formatCurrency(order.shipping) : 'Gratis'}</dd></div>
                   <div><dt>Total</dt><dd>{formatCurrency(order.total)}</dd></div>
                 </dl>
               </section>
@@ -136,6 +137,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
               </tbody>
             </table>
 
+            <div className='order-receipt-shipping'><span>Envío</span><span>{order.shipping ? formatCurrency(order.shipping) : 'Gratis'}</span></div>
             <div className='order-receipt-total'><span>TOTAL</span><strong>{formatCurrency(order.total)}</strong></div>
             <p className='order-receipt-footer'>Gracias por tu compra en Tu Tiendita Venezolana.</p>
           </article>

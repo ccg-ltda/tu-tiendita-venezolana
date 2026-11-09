@@ -22,7 +22,7 @@ const CheckoutModal = lazy(() => import('../components/checkout/CheckoutModal').
 export function ProductPage() {
   const { slug } = useParams();
   const { catalog, loading, catalogError } = useCatalog();
-  const { cart, cartItems, cartCount, total, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
+  const { cart, cartItems, cartCount, total, shipping, grandTotal, toastProduct, setQuantity, addProduct, setToastProduct, clearCart } = useCart(catalog);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [activePolicy, setActivePolicy] = useState(null);
@@ -94,8 +94,8 @@ export function ProductPage() {
       )}
       <TrustStrip />
       <Footer categories={categories} onCategory={() => {}} onPolicy={(key) => setActivePolicy(policies[key])} />
-      <CartDrawer open={drawerOpen} items={cartItems} total={total} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
-      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
+      <CartDrawer open={drawerOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
+      {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>
