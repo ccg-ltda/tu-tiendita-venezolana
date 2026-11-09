@@ -6,7 +6,7 @@ export function CartDrawer({ open, items, total, shipping = 0, grandTotal, onClo
   return (
     <>
       <button className={`overlay${open ? ' open' : ''}`} onClick={onClose} aria-label="Cerrar carrito" />
-      <aside className={`drawer${open ? ' open' : ''}`} aria-hidden={!open} aria-label="Carrito de compras" {...(open ? {} : { inert: '' })}>
+      <aside className={`drawer${open ? ' open' : ''}`} aria-label="Carrito de compras" {...(open ? {} : { inert: '' })}>
         <div className="drawer-head"><h3>Tu pedido <ShoppingBag size={20} aria-hidden='true' /></h3><button className="drawer-close" onClick={onClose}>✕</button></div>
         <div className="drawer-body">
           {!items.length && <div className="drawer-empty">Tu carrito está vacío.<br />¡Agrega tus productos venezolanos favoritos!</div>}
