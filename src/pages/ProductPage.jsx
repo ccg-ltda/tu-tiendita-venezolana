@@ -83,6 +83,7 @@ export function ProductPage() {
             <nav aria-label='Categoría'><Link to={`/categoria/${product.catSlug}`}>{product.cat}</Link> · {product.sub}</nav>
             <div className='card-img product-detail-img'>{imageSrc ? <img src={imageSrc} alt={product.name} width='600' height='600' /> : <span className='product-placeholder'><Package size={48} aria-hidden='true' /></span>}{outOfStock && <div className='stock-badge'>Agotado</div>}</div>
             <div className='card-pres'>{product.pres}</div>
+            {product.description && <p className='product-detail-description'>{product.description}</p>}
             {promotion ? <div className='card-price promotion-price'><del>{formatPrice(promotion.originalPrice)}</del><strong>{formatPrice(product.price)}</strong></div> : <div className='card-price'>{formatPrice(product.price)}</div>}
             <div className='card-stock'>{outOfStock ? 'Sin unidades disponibles' : 'Disponible'}</div>
             <div className='card-actions'>

@@ -240,7 +240,7 @@ class AdminProductTest extends TestCase
     /** @return list<string> */
     private function productFields(): array
     {
-        return ['id', 'category_id', 'subcategory_id', 'img', 'category', 'subcategory', 'name', 'presentation', 'price', 'image', 'inventory', 'active', 'revision'];
+        return ['id', 'category_id', 'subcategory_id', 'img', 'category', 'subcategory', 'name', 'presentation', 'description', 'price', 'image', 'inventory', 'active', 'revision'];
     }
 
     /** @return array<string, int|bool|string> */

@@ -67,6 +67,7 @@ class ProductController extends Controller
         $public = [
             'id' => $product['product_id'], 'img' => $product['legacy_img'], 'cat' => $product['category'],
             'sub' => $product['subcategory'], 'name' => $product['name'], 'pres' => $product['presentation'],
+            'description' => $product['description'] ?? null,
             'slug' => $product['slug'], 'catSlug' => $product['category_slug'],
             'price' => $price['effective_price_cop'], 'image' => $this->images->publicUrl($product['image_path']),
             'inventory' => $product['inventory'], 'active' => $product['active'],

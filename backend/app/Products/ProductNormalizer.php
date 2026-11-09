@@ -19,10 +19,13 @@ final class ProductNormalizer
         foreach (['category'=>100,'subcategory'=>100,'name'=>500,'presentation'=>100] as $field=>$max) {
             if (!is_string($product[$field] ?? null) || ($value=trim($product[$field])) === '' || strlen($value) > $max) return null;
         }
-        foreach (['image_path','legacy_img'] as $field) if (($product[$field] ?? null) !== null && !is_string($product[$field])) return null;
+        foreach (['image_path','legacy_img','description'] as $field) if (($product[$field] ?? null) !== null && !is_string($product[$field])) return null;
+        if (is_string($product['description'] ?? null) && strlen($product['description']) > 2000) return null;
         $normalized = [
             'product_id'=>$id,'category'=>trim($product['category']),'subcategory'=>trim($product['subcategory']),
-            'name'=>trim($product['name']),'presentation'=>trim($product['presentation']),'price_cop'=>$price,
+            'name'=>trim($product['name']),'presentation'=>trim($product['presentation']),
+            'description'=>isset($product['description']) && trim((string) $product['description']) !== '' ? trim($product['description']) : null,
+            'price_cop'=>$price,
             'inventory'=>$inventory,'active'=>$active,'image_path'=>$product['image_path'] ?? null,
             'legacy_img'=>$product['legacy_img'] ?? null,'created_at'=>isset($product['created_at']) ? (string)$product['created_at'] : null,
             'updated_at'=>isset($product['updated_at']) ? (string)$product['updated_at'] : null,'revision'=>$revision,

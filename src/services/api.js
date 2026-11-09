@@ -195,7 +195,7 @@ export const api = {
 function productFormData(product) {
   const formData = new FormData();
 
-  ['name', 'category_id', 'subcategory_id', 'presentation', 'price', 'inventory', 'active', 'expected_revision'].forEach((field) => {
+  ['name', 'category_id', 'subcategory_id', 'presentation', 'description', 'price', 'inventory', 'active', 'expected_revision'].forEach((field) => {
     if (product[field] === undefined) return;
     formData.append(field, field === 'active' ? (product[field] ? '1' : '0') : product[field]);
   });

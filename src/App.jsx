@@ -15,7 +15,7 @@ import { PolicyModal } from './components/common/PolicyModal';
 import { SeoHead } from './components/common/SeoHead';
 import { useCatalog } from './hooks/useCatalog';
 import { useCart } from './hooks/useCart';
-import { Building2 } from 'lucide-react';
+import { Building2, MessageCircle } from 'lucide-react';
 
 // El checkout (widget de Wompi incluido) no hace falta hasta que se abre:
 // separarlo del bundle inicial del catalogo ayuda al peso de carga (PageSpeed).
@@ -89,7 +89,10 @@ export default function App() {
       {!loading && !catalogError && <main className='main' id='catalogo'><Sidebar category={activeCat} subcategories={subcategories} activeSub={activeSub} counts={subCounts} onSelect={(sub) => { setActiveSub(sub); setSearch(''); }} /><ProductGrid title={title} products={visibleProducts} cart={cart} onQuantity={setQuantity} onAdd={addProduct} /></main>}
       <TrustStrip />
       <Footer categories={categories} onCategory={selectCategory} onPolicy={(key) => setActivePolicy(policies[key])} />
-      <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
+      <div className='fab-stack'>
+        <a className='fab' href='https://wa.me/573107359944' target='_blank' rel='noreferrer'><span className='ic'><MessageCircle size={16} aria-hidden='true' /></span><span>WhatsApp<small>Escríbenos</small></span></a>
+        <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
+      </div>
       <CartDrawer open={drawerOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
       {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
