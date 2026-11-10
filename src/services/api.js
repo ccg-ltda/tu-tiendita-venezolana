@@ -105,6 +105,12 @@ export const api = {
     return request(`/api/admin/audit?${query.toString()}`, { signal });
   },
   listAdminActivityAdministrators: (options = {}) => request('/api/admin/audit/administrators', options),
+  // Panel v2: Dashboard, Clientes y WhatsApp
+  getAdminDashboard: ({ from, to, signal } = {}) => { const q = new URLSearchParams(); if (from) q.set('from', from); if (to) q.set('to', to); return request(`/api/admin/dashboard?${q.toString()}`, { signal }); },
+  listAdminCustomers: (options = {}) => request('/api/admin/customers', options),
+  listAdminWhatsAppRequests: (options = {}) => request('/api/admin/whatsapp-requests', options),
+  createAdminWhatsAppRequest: async (data) => { const csrfToken = await getCsrfToken(); return request('/api/admin/whatsapp-requests', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(data) }); },
+  updateAdminWhatsAppRequest: async (id, data) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/whatsapp-requests/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(data) }); },
   getAdminCoupon: (id, options = {}) => request(`/api/admin/coupons/${encodeURIComponent(id)}`, options),
   createAdminCoupon: async (coupon) => { const csrfToken = await getCsrfToken(); return request('/api/admin/coupons', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(coupon) }); },
   updateAdminCoupon: async (id, coupon) => { const csrfToken = await getCsrfToken(); return request(`/api/admin/coupons/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(coupon) }); },

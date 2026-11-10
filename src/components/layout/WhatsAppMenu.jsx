@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 function trackContact(topic) {
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event: 'contact', method: 'whatsapp', contact_topic: topic });
+  // Conteo para el módulo de WhatsApp del panel (solo el tema; sin datos personales). Si falla, no pasa nada.
+  try {
+    fetch(`${import.meta.env.VITE_API_URL || ''}/api/whatsapp-clicks`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ topic }) }).catch(() => {});
+  } catch { /* sin conexión: se ignora */ }
 }
 
 // Menú de WhatsApp: un solo botón flotante con saludo y 3 opciones.

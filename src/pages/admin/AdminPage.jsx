@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import branding from '../../data/branding.json';
 import { useAdminData } from '../../context/AdminDataContext';
 import '../../styles/admin-dashboard.css';
+import { AdminInsightsDashboard } from './insights/AdminInsights';
 
 const navigation = [
   { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
@@ -10,6 +11,8 @@ const navigation = [
   { label: 'Promociones', icon: 'promotions', path: '/admin/promotions' },
   { label: 'Cupones', icon: 'promotions', path: '/admin/coupons' },
   { label: 'Pedidos', icon: 'orders', path: '/admin/orders' },
+  { label: 'Clientes', icon: 'customers', path: '/admin/customers' },
+  { label: 'WhatsApp', icon: 'whatsapp', path: '/admin/whatsapp' },
   { label: 'Historial', icon: 'activity', path: '/admin/activity' },
 ];
 
@@ -23,6 +26,8 @@ function Icon({ name, size = 20 }) {
     activity: <><path d='M4 12a8 8 0 1 0 2.35-5.65L4 8.7' /><path d='M4 4.5v4.2h4.2M12 7.5V12l3.2 2' /></>,
     inventory: <><path d='M4 7.5h16v13H4zM8 7.5V4h8v3.5M8 12h8M8 16h5' /></>,
     settings: <><circle cx='12' cy='12' r='3' /><path d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56v.08h-3v-.08a1.7 1.7 0 0 0-1.03-1.56A1.7 1.7 0 0 0 8.8 19l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 7.02 15 1.7 1.7 0 0 0 5.46 14H5.4v-3h.06A1.7 1.7 0 0 0 7.02 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06L8.74 5.94l.06.06A1.7 1.7 0 0 0 10.68 6.34 1.7 1.7 0 0 0 11.7 4.78V4.7h3v.08a1.7 1.7 0 0 0 1.03 1.56A1.7 1.7 0 0 0 17.62 6l.06-.06 2.12 2.12-.06.06A1.7 1.7 0 0 0 19.4 10 1.7 1.7 0 0 0 20.96 11h.08v3h-.08A1.7 1.7 0 0 0 19.4 15Z' /></>,
+    customers: <><circle cx='9' cy='8' r='3' /><path d='M3.5 19c.6-3 2.7-4.5 5.5-4.5s4.9 1.5 5.5 4.5M16 5.5a3 3 0 0 1 0 5.5M17.5 14.7c1.6.6 2.6 2 3 4.3' /></>,
+    whatsapp: <><path d='M4 20l1.3-4A8 8 0 1 1 8.6 19L4 20Z' /><path d='M9.2 8.6c.2 2.6 2.6 5 5.2 5.2l1-1.3-1.8-.9-.8.8a4 4 0 0 1-2-2l.8-.8-.9-1.8-1.3 1Z' /></>,
     menu: <><path d='M4 7h16M4 12h16M4 17h16' /></>,
     logout: <><path d='M10 5H5v14h5M14 8l4 4-4 4M9 12h9' /></>,
     user: <><circle cx='12' cy='8' r='3.25' /><path d='M5.5 20c.7-3.25 3-5 6.5-5s5.8 1.75 6.5 5' /></>,
@@ -93,5 +98,5 @@ export function AdminDashboardPage() {
   const { user } = useAdminData();
   const role = user?.role || 'Administrador';
 
-  return <div className='admin-content'><div className='admin-page-heading'><div><p className='admin-eyebrow'>Vista general</p><h1>Dashboard</h1><p>Resumen general del panel administrativo.</p></div></div><section className='admin-module-grid' aria-label='Modulos administrativos preparados'><article className='admin-module-card'><div className='admin-module-icon'><Icon name='products' /></div><div><h2>Productos</h2><p>Consulta el catalogo administrativo.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/products')}>Ver productos</button></article><article className='admin-module-card'><div className='admin-module-icon'><Icon name='orders' /></div><div><h2>Pedidos</h2><p>El seguimiento de pedidos estara disponible aqui.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/orders')}>Ver pedidos</button></article></section><section className='admin-system-status' aria-labelledby='system-status-title'><div className='admin-section-heading'><div><p className='admin-eyebrow'>Informacion administrativa</p><h2 id='system-status-title'>Estado del sistema</h2></div><span className='admin-active-indicator'><i />Sesion activa</span></div><dl className='admin-status-list'><div><dt>Sesion administrativa</dt><dd><span className='admin-status-dot' />Activa</dd></div><div><dt>Usuario</dt><dd><Icon name='user' size={16} />{user?.name || 'Administracion'}<small>{user?.username}</small></dd></div><div><dt>Rol</dt><dd>{role}</dd></div></dl></section></div>;
+  return <div className='admin-content'><div className='admin-page-heading'><div><p className='admin-eyebrow'>Vista general</p><h1>Dashboard</h1><p>Resumen general del panel administrativo.</p></div></div><AdminInsightsDashboard /><section className='admin-module-grid' aria-label='Modulos administrativos preparados'><article className='admin-module-card'><div className='admin-module-icon'><Icon name='products' /></div><div><h2>Productos</h2><p>Consulta el catalogo administrativo.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/products')}>Ver productos</button></article><article className='admin-module-card'><div className='admin-module-icon'><Icon name='orders' /></div><div><h2>Pedidos</h2><p>El seguimiento de pedidos estara disponible aqui.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/orders')}>Ver pedidos</button></article></section><section className='admin-system-status' aria-labelledby='system-status-title'><div className='admin-section-heading'><div><p className='admin-eyebrow'>Informacion administrativa</p><h2 id='system-status-title'>Estado del sistema</h2></div><span className='admin-active-indicator'><i />Sesion activa</span></div><dl className='admin-status-list'><div><dt>Sesion administrativa</dt><dd><span className='admin-status-dot' />Activa</dd></div><div><dt>Usuario</dt><dd><Icon name='user' size={16} />{user?.name || 'Administracion'}<small>{user?.username}</small></dd></div><div><dt>Rol</dt><dd>{role}</dd></div></dl></section></div>;
 }
