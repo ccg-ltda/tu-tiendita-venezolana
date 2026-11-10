@@ -78,6 +78,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('public-catalog', static fn (Request $request): Limit => Limit::perMinute(120)
             ->by('public-catalog:'.$request->ip()));
 
+        RateLimiter::for('whatsapp-click', static fn (Request $request): Limit => Limit::perMinute(20)
+            ->by('whatsapp-click:'.$request->ip()));
+
         RateLimiter::for('public-blog', static fn (Request $request): Limit => Limit::perMinute(120)
             ->by('public-blog:'.$request->ip()));
 

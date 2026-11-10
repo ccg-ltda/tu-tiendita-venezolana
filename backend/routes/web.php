@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\AdminActivityController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\InsightsController;
+use App\Http\Controllers\Admin\WhatsAppRequestController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\ProductController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
@@ -62,6 +64,11 @@ Route::prefix('api/admin')
     ->group(function () {
         Route::get('/audit/administrators', [AdminActivityController::class, 'administrators']);
         Route::get('/audit', [AdminActivityController::class, 'index']);
+        Route::get('/dashboard', [InsightsController::class, 'dashboard']);
+        Route::get('/customers', [InsightsController::class, 'customers']);
+        Route::get('/whatsapp-requests', [WhatsAppRequestController::class, 'index']);
+        Route::post('/whatsapp-requests', [WhatsAppRequestController::class, 'store']);
+        Route::patch('/whatsapp-requests/{whatsappRequest}', [WhatsAppRequestController::class, 'update']);
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
