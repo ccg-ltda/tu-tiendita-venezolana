@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Package } from 'lucide-react';
 import { policies } from '../data/policies';
@@ -26,8 +26,30 @@ export function ProductPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [activePolicy, setActivePolicy] = useState(null);
+  const viewedProduct = useRef({ slug: null, sent: false });
 
   const product = catalog.find((item) => item.slug === slug && item.active !== false);
+
+  useEffect(() => {
+    if (viewedProduct.current.slug !== slug) viewedProduct.current = { slug, sent: false };
+    if (viewedProduct.current.sent || !product || product.id == null || !product.name || product.price == null || (typeof product.price === 'string' && !product.price.trim()) || !Number.isFinite(Number(product.price)) || Number(product.price) < 0 || !Array.isArray(window.dataLayer)) return;
+
+    window.dataLayer.push({
+      event: 'view_item',
+      ecommerce: {
+        currency: 'COP',
+        value: Number(product.price),
+        items: [{
+          item_id: product.slug?.trim() || String(product.id),
+          item_name: product.name,
+          item_category: product.cat,
+          price: Number(product.price),
+          quantity: 1,
+        }],
+      },
+    });
+    viewedProduct.current.sent = true;
+  }, [product, slug]);
 
   if (!loading && !catalogError && catalog.length && !product) {
     return <NotFoundPage />;

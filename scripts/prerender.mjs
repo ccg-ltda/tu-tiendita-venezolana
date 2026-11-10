@@ -43,11 +43,32 @@ async function fetchRoutes() {
   for (const slug of categories.keys()) routes.push({ path: `/categoria/${slug}`, label: `categoría ${slug}` });
   for (const p of active) if (p.slug) routes.push({ path: `/producto/${p.slug}`, label: `producto ${p.slug}` });
 
+  routes.push({ path: '/blogs', label: 'blogs' });
+  try {
+    const blogRes = await fetch(`${API_URL}/api/blog`, { signal: AbortSignal.timeout(10000) });
+    if (!blogRes.ok) throw new Error(`HTTP ${blogRes.status}`);
+    const articles = await blogRes.json();
+    if (!Array.isArray(articles)) throw new Error('La respuesta no es una lista de artículos');
+
+    const blogPaths = new Set();
+    for (const article of articles) {
+      const slug = article?.slug;
+      if (typeof slug !== 'string' || !slug.trim() || slug === '.' || slug === '..' || /[/\\]/.test(slug)) continue;
+      const blogPath = `/blogs/${encodeURIComponent(slug)}`;
+      if (blogPaths.has(blogPath)) continue;
+      blogPaths.add(blogPath);
+      routes.push({ path: blogPath, label: `blog ${slug}` });
+    }
+  } catch (error) {
+    console.warn(`[prerender] No se pudieron leer los blogs: ${error.message}`);
+  }
+
   return routes;
 }
 
 async function outputPathFor(routePath) {
   if (routePath === '/') return path.join(DIST_DIR, 'index.html');
+  if (routePath.startsWith('/blogs/')) return path.join(DIST_DIR, 'blogs', decodeURIComponent(routePath.slice('/blogs/'.length)), 'index.html');
   return path.join(DIST_DIR, routePath.replace(/^\//, ''), 'index.html');
 }
 
@@ -55,6 +76,10 @@ async function prerenderRoute(page, routePath) {
   await page.goto(`${BASE_URL}${routePath}`, { waitUntil: 'networkidle0', timeout: 30000 });
   // El catálogo llega por fetch; dale un respiro extra al render de React.
   await page.waitForSelector('h1', { timeout: 10000 }).catch(() => {});
+  // El snippet vuelve a insertar GTM al cargar el HTML generado.
+  await page.evaluate(() => {
+    document.querySelectorAll('script[src^="https://www.googletagmanager.com/gtm.js?"]').forEach((script) => script.remove());
+  });
   const html = await page.content();
   const outPath = await outputPathFor(routePath);
   await mkdir(path.dirname(outPath), { recursive: true });
@@ -81,6 +106,11 @@ async function main() {
     const browser = await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
     try {
       const page = await browser.newPage();
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        if (request.url().startsWith('https://www.googletagmanager.com/gtm.js?')) request.abort();
+        else request.continue();
+      });
       for (const route of routes) {
         try {
           await prerenderRoute(page, route.path);

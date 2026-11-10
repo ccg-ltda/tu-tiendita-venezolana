@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\ProductController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use App\Repositories\MySqlCategoryRepository;
+use App\Repositories\MySqlBlogPostRepository;
 use App\Repositories\MySqlProductRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +25,7 @@ Route::get('/api/products/{slug}', [ProductController::class, 'show'])
     ->where('slug', '[a-z0-9-]+')
     ->middleware('throttle:public-catalog');
 
-Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCategoryRepository $categories) {
+Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCategoryRepository $categories, MySqlBlogPostRepository $posts) {
     $data = Cache::remember('sitemap-xml-data', 3600, function () use ($products, $categories): array {
         $activeProducts = array_values(array_filter(
             $products->all(),
@@ -38,6 +39,11 @@ Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCate
     $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
     $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
     $xml .= '<url><loc>https://tutienditavenezolana.com/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>'."\n";
+    $xml .= '<url><loc>https://tutienditavenezolana.com/blogs</loc></url>' . "\n";
+    foreach ($posts->publishedArticles() as $post) {
+        $loc = 'https://tutienditavenezolana.com/blogs/'.rawurlencode($post['slug']);
+        $xml .= "<url><loc>{$loc}</loc></url>\n";
+    }
     foreach ($data['categories'] as $category) {
         $loc = 'https://tutienditavenezolana.com/categoria/'.rawurlencode($category['slug']);
         $xml .= "<url><loc>{$loc}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n";
