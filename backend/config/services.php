@@ -38,6 +38,14 @@ return [
         'reservation_release_grace_minutes' => (int) env('WOMPI_RESERVATION_RELEASE_GRACE_MINUTES', 35),
     ],
 
+    // API de conversiones de Meta. Vacío = desactivada (no se encola nada).
+    'meta' => [
+        'pixel_id' => env('META_PIXEL_ID'),
+        'capi_token' => env('META_CAPI_TOKEN'),
+        'test_event_code' => env('META_TEST_EVENT_CODE'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v21.0'),
+    ],
+
     'order_notifications' => [
         'admin_email' => env('ORDER_NOTIFICATION_EMAIL'),
     ],

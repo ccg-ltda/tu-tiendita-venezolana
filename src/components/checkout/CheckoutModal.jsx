@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { loadWompiWidget } from '../../services/wompiWidget';
 import { policies } from '../../data/policies';
 import { PolicyModal } from '../common/PolicyModal';
+import { trackBeginCheckout, trackPurchase } from '../../utils/analytics';
 
 const emptyCustomer = { name: '', email: '', phone: '', document: '', address: '', extra: '', city: '', region: '', postal: '' };
 const STATUS_CHECK_INTERVAL = 5000;
@@ -44,6 +45,7 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
   const idempotencyKey = useRef(null);
   const statusToken = useRef(null);
   const wompiTransactionId = useRef(null);
+  const orderReference = useRef('');
   const statusCheckTimeout = useRef(null);
   const statusCheckInFlight = useRef(false);
   const statusCheckCount = useRef(0);
@@ -73,6 +75,7 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
 
   useEffect(() => {
     if (!open) clearStatusCheck();
+    else trackBeginCheckout(items, grandTotal);
   }, [open]);
 
   useEffect(() => {
@@ -162,14 +165,13 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
     clearStatusCheck();
     statusToken.current = null;
     idempotencyKey.current = null;
-    if (typeof window.gtag === 'function') {
-      window.gtag('event', 'purchase', {
-        transaction_id: reference,
-        value: couponPreview?.total_cop ?? grandTotal,
-        currency: 'COP',
-        items: items.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.qty })),
-      });
-    }
+    trackPurchase({
+      reference: orderReference.current || reference,
+      items,
+      value: couponPreview?.total_cop ?? grandTotal,
+      shipping: couponPreview?.shipping_cop ?? shipping,
+      coupon: couponPreview?.coupon?.code,
+    });
     onPaymentConfirmed();
     showStatusResult('APPROVED');
   };
@@ -267,6 +269,7 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
         expirationTime: payment.expirationTime,
       });
 
+      orderReference.current = order.reference;
       setReference(order.reference);
       checkout.open((result) => {
         if (!mounted.current || !modalOpen.current) return;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { shippingCost } from '../utils/shipping';
+import { trackAddToCart } from '../utils/analytics';
 
 /** Cart state shared by the home page and standalone category/product pages. */
 export function useCart(catalog) {
@@ -34,7 +35,13 @@ export function useCart(catalog) {
     if (safeQuantity > 0) next[id] = safeQuantity; else delete next[id];
     return next;
   });
-  const addProduct = (product) => { if (!cart[product.id]) setQuantity(product.id, 1); setToastProduct(product); };
+  const addProduct = (product) => {
+    if (!cart[product.id]) {
+      setQuantity(product.id, 1);
+      trackAddToCart(product, 1);
+    }
+    setToastProduct(product);
+  };
 
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...catalog.find((product) => product.id === Number(id)), qty })).filter((item) => item.id && item.qty > 0 && item.active !== false);
   const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);

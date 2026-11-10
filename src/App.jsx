@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import branding from './data/branding.json';
+import { ChristmasBanner } from './components/layout/ChristmasBanner';
+import { WhatsAppMenu } from './components/layout/WhatsAppMenu';
 import { policies } from './data/policies';
 import { buildCategories, unique, normalizeText } from './utils/catalog';
 import { Awning } from './components/layout/Awning';
@@ -15,7 +16,6 @@ import { PolicyModal } from './components/common/PolicyModal';
 import { SeoHead } from './components/common/SeoHead';
 import { useCatalog } from './hooks/useCatalog';
 import { useCart } from './hooks/useCart';
-import { Building2, MessageCircle } from 'lucide-react';
 
 // El checkout (widget de Wompi incluido) no hace falta hasta que se abre:
 // separarlo del bundle inicial del catalogo ayuda al peso de carga (PageSpeed).
@@ -82,17 +82,14 @@ export default function App() {
         search={search}
         onSearch={setSearch}
       />
-      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={branding.bannerMobile} /><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
+      <ChristmasBanner />
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
       {!loading && !catalogError && <main className='main' id='catalogo'><Sidebar category={activeCat} subcategories={subcategories} activeSub={activeSub} counts={subCounts} onSelect={(sub) => { setActiveSub(sub); setSearch(''); }} /><ProductGrid title={title} products={visibleProducts} cart={cart} onQuantity={setQuantity} onAdd={addProduct} /></main>}
       <TrustStrip />
       <Footer categories={categories} onCategory={selectCategory} onPolicy={(key) => setActivePolicy(policies[key])} />
-      <div className='fab-stack'>
-        <a className='fab' href='https://wa.me/573107359944' target='_blank' rel='noreferrer'><span className='ic'><MessageCircle size={16} aria-hidden='true' /></span><span>WhatsApp<small>Escríbenos</small></span></a>
-        <a className='fab mayorista' href='https://wa.link/9pyro2' target='_blank' rel='noreferrer'><span className='ic'><Building2 size={16} aria-hidden='true' /></span><span>Mayoristas<small>Habla con ventas</small></span></a>
-      </div>
+      <WhatsAppMenu />
       <CartDrawer open={drawerOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setDrawerOpen(false)} onRemove={(id) => setQuantity(id, 0)} onCheckout={() => { setDrawerOpen(false); setCheckoutOpen(true); }} />
       {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={handlePaymentConfirmed} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />

@@ -12,6 +12,17 @@ const API_URL = process.env.PRERENDER_API_URL || 'https://api.tutienditavenezola
 const DIST_DIR = path.resolve('dist');
 const PORT = process.env.PRERENDER_PORT ? Number(process.env.PRERENDER_PORT) : 4173;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Analítica y pagos: se bloquean durante el prerender (no deben registrar
+// visitas falsas del build) y se limpian del HTML final.
+const TRACKING_HOSTS = [
+  'googletagmanager.com',
+  'google-analytics.com',
+  'analytics.google.com',
+  'doubleclick.net',
+  'connect.facebook.net',
+  'facebook.com/tr',
+  'checkout.wompi.co',
+];
 
 function waitForServer(url, timeoutMs = 20000) {
   const start = Date.now();
@@ -55,6 +66,16 @@ async function prerenderRoute(page, routePath) {
   await page.goto(`${BASE_URL}${routePath}`, { waitUntil: 'networkidle0', timeout: 30000 });
   // El catálogo llega por fetch; dale un respiro extra al render de React.
   await page.waitForSelector('h1', { timeout: 10000 }).catch(() => {});
+  // Quita lo que inyectan GTM / GA4 / píxel de Meta / Wompi en tiempo de
+  // ejecución. Si queda en el snapshot, el navegador lo carga una vez desde el
+  // HTML y otra vez cuando el snippet de GTM vuelve a correr (visitas dobles).
+  // El snippet inline de GTM (sin src) se conserva.
+  await page.evaluate((patterns) => {
+    document.querySelectorAll('script[src], iframe[src], link[href]').forEach((element) => {
+      const url = element.getAttribute('src') || element.getAttribute('href') || '';
+      if (patterns.some((pattern) => url.includes(pattern))) element.remove();
+    });
+  }, TRACKING_HOSTS);
   const html = await page.content();
   const outPath = await outputPathFor(routePath);
   await mkdir(path.dirname(outPath), { recursive: true });
@@ -81,6 +102,11 @@ async function main() {
     const browser = await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
     try {
       const page = await browser.newPage();
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        if (TRACKING_HOSTS.some((host) => request.url().includes(host))) request.abort();
+        else request.continue();
+      });
       for (const route of routes) {
         try {
           await prerenderRoute(page, route.path);

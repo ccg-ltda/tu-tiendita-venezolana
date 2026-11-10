@@ -1,20 +1,15 @@
 <!doctype html>
 <html lang="es">
   <head>
-    <!-- Google tag (gtag.js): se carga tras el primer render para no competir
-         por ancho de banda con el LCP (banner) en conexiones lentas. -->
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-V4EZQCCJ61');
-      window.addEventListener('load', function () {
-        var s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-V4EZQCCJ61';
-        document.head.appendChild(s);
-      });
-    </script>
+    <!-- Google Tag Manager (GTM-WZLNGRL7). GA4 (G-V4EZQCCJ61) y el píxel de
+         Meta viven dentro del contenedor: no agregar gtag.js ni fbevents.js
+         aquí, o se cuentan visitas dobles. Carga async: no bloquea el render. -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WZLNGRL7');</script>
+    <!-- End Google Tag Manager -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia." />
@@ -31,8 +26,13 @@
     <meta name="twitter:image" content="https://tutienditavenezolana.com/assets/banner.webp" />
     <title>Productos venezolanos en Colombia | Tu Tiendita Venezolana</title>
     <link rel="icon" type="image/png" href="/assets/logo.png" />
-    <link rel="preload" as="image" href="/assets/banner-navidad-mobile.webp" fetchpriority="high" media="(max-width:767px)" />
-    <link rel="preload" as="image" href="/assets/banner-navidad-desktop.webp" fetchpriority="high" media="(min-width:768px)" />
+    <!-- Banner de Navidad (LCP): mismos srcset/sizes/corte que ChristmasBanner.jsx -->
+    <link rel="preload" as="image" fetchpriority="high" type="image/avif" media="(max-width: 767px)"
+      imagesrcset="/assets/banner-navidad-mobile-480.avif 480w, /assets/banner-navidad-mobile-640.avif 640w, /assets/banner-navidad-mobile-780.avif 780w"
+      imagesizes="100vw" />
+    <link rel="preload" as="image" fetchpriority="high" type="image/avif" media="(min-width: 768px)"
+      imagesrcset="/assets/banner-navidad-desktop-1280.avif 1280w, /assets/banner-navidad-desktop-1920.avif 1920w, /assets/banner-navidad-desktop-2560.avif 2560w"
+      imagesizes="(max-width: 1240px) calc(100vw - 48px), 1192px" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Carga la hoja de Google Fonts sin bloquear el primer render (PageSpeed:
@@ -42,6 +42,10 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" /></noscript>
   </head>
   <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WZLNGRL7"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

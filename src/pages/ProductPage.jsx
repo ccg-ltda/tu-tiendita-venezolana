@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Package } from 'lucide-react';
 import { policies } from '../data/policies';
@@ -8,6 +8,7 @@ import { Awning } from '../components/layout/Awning';
 import { Header } from '../components/layout/Header';
 import { TrustStrip } from '../components/layout/TrustStrip';
 import { Footer } from '../components/layout/Footer';
+import { WhatsAppMenu } from '../components/layout/WhatsAppMenu';
 import { CartDrawer } from '../components/cart/CartDrawer';
 import { Toast } from '../components/cart/Toast';
 import { PolicyModal } from '../components/common/PolicyModal';
@@ -16,6 +17,7 @@ import { NotFoundPage } from './NotFoundPage';
 import { useCatalog } from '../hooks/useCatalog';
 import { useCart } from '../hooks/useCart';
 import { buildCategories } from '../utils/catalog';
+import { trackViewItem } from '../utils/analytics';
 
 const CheckoutModal = lazy(() => import('../components/checkout/CheckoutModal').then((m) => ({ default: m.CheckoutModal })));
 
@@ -28,6 +30,12 @@ export function ProductPage() {
   const [activePolicy, setActivePolicy] = useState(null);
 
   const product = catalog.find((item) => item.slug === slug && item.active !== false);
+
+  // view_item una vez por producto visto (no en cada re-render).
+  const viewedProductId = product?.id;
+  useEffect(() => {
+    if (product) trackViewItem(product);
+  }, [viewedProductId]);
 
   if (!loading && !catalogError && catalog.length && !product) {
     return <NotFoundPage />;
@@ -99,6 +107,7 @@ export function ProductPage() {
       {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
+      <WhatsAppMenu />
     </div>
   );
 }

@@ -18,8 +18,10 @@ use App\Models\Subcategory;
 use App\Repositories\MySqlProductPromotionRepository;
 use App\Promotions\ProductPromotionPriceResolver;
 use App\Promotions\PromotionContractException;
+use App\Support\Meta\MetaConversionsClient;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -347,6 +349,16 @@ final class SqlCheckoutService
         $payload = $this->notificationPayload($order, $items);
         $this->notifications->enqueue([...$payload, 'notification_type' => 'PEDIDO_CREADO', 'recipient_kind' => 'customer']);
         $this->notifications->enqueue([...$payload, 'notification_type' => 'PEDIDO_CREADO', 'recipient_kind' => 'admin']);
+        // Compra para la API de conversiones de Meta: viaja por el mismo outbox
+        // (reintentos incluidos) y nunca bloquea ni falla el checkout.
+        if (MetaConversionsClient::configured()) {
+            try {
+                $this->notifications->enqueue([...$payload, 'region' => $order->region, 'paid_at' => $this->iso($order->paid_at),
+                    'notification_type' => 'META_COMPRA', 'recipient_kind' => 'meta']);
+            } catch (\Throwable $exception) {
+                Log::warning('Meta purchase could not be queued.', ['order_id' => $order->id, 'error' => $exception->getMessage()]);
+            }
+        }
     }
 
     private function enqueueStatusNotification(Order $order, string $status): void

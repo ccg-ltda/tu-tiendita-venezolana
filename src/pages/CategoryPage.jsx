@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import branding from '../data/branding.json';
+import { ChristmasBanner } from '../components/layout/ChristmasBanner';
 import { policies } from '../data/policies';
 import { buildCategories, unique, normalizeText } from '../utils/catalog';
 import { Awning } from '../components/layout/Awning';
@@ -8,6 +8,7 @@ import { Header } from '../components/layout/Header';
 import { CategoryNav } from '../components/layout/CategoryNav';
 import { TrustStrip } from '../components/layout/TrustStrip';
 import { Footer } from '../components/layout/Footer';
+import { WhatsAppMenu } from '../components/layout/WhatsAppMenu';
 import { Sidebar } from '../components/catalog/Sidebar';
 import { ProductGrid } from '../components/catalog/ProductGrid';
 import { CartDrawer } from '../components/cart/CartDrawer';
@@ -63,7 +64,7 @@ export function CategoryPage() {
       {categoryName && <h1 className='sr-only'>{categoryName} venezolanos — Compra online con envío desde Bogotá</h1>}
       <Awning />
       <Header cartCount={cartCount} onCartOpen={() => setDrawerOpen(true)} search={search} onSearch={setSearch} homeHref='/' />
-      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={branding.bannerMobile} /><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
+      <ChristmasBanner />
       <CategoryNav categories={categories} active={categoryName} onSelect={() => {}} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
@@ -74,6 +75,7 @@ export function CategoryPage() {
       {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
+      <WhatsAppMenu />
     </div>
   );
 }

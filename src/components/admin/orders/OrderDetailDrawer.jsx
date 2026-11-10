@@ -1,6 +1,18 @@
 import { formatCurrency, formatDate, isPaymentNotCompleted, orderDisplayStatusClass, orderDisplayStatusLabel, paymentStatusClass, paymentStatusLabel } from './OrderTable';
 import { orderStatusLabel } from '../../../utils/orderStatus';
 
+// El navegador usa el título de la página como nombre del PDF al "Guardar como PDF".
+// Mientras se imprime, el título pasa a "Pedido <referencia> - <cliente>" y luego vuelve al original.
+function printReceipt(order) {
+  const clean = (text) => String(text || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const name = clean(order?.customer_name);
+  const original = document.title;
+  document.title = `Pedido ${clean(order?.reference)}${name ? ` - ${name}` : ''}`;
+  const restore = () => { document.title = original; window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  window.print();
+}
+
 export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus, updatingStatus = false }) {
   const paymentNotCompleted = isPaymentNotCompleted(order);
   const nextAction = order && !paymentNotCompleted && ({ PENDING: order.payment_status === 'APPROVED' ? ['PROCESSING', 'Iniciar preparación'] : null, PROCESSING: ['READY', 'Marcar como listo'], READY: ['SHIPPED', 'Marcar como enviado'], SHIPPED: ['DELIVERED', 'Marcar como entregado'] }[order.status]);
@@ -15,7 +27,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
             <h2>Detalle del pedido</h2>
           </div>
           <div className='admin-order-detail-header-actions'>
-            {!loading && !error && order && <button type='button' className='admin-order-detail-print' onClick={() => window.print()}>Imprimir resumen</button>}
+            {!loading && !error && order && <button type='button' className='admin-order-detail-print' onClick={() => printReceipt(order)}>Imprimir resumen</button>}
             <button type='button' className='admin-order-detail-close' onClick={onClose} aria-label='Cerrar'>×</button>
           </div>
         </header>
