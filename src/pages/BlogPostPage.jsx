@@ -10,6 +10,7 @@ import { policies } from '../data/policies';
 import { api } from '../services/api';
 import { sanitizeBlogHtml } from '../utils/sanitizeBlogHtml';
 import { SeoHead } from '../components/common/SeoHead';
+import { demoPosts, isPreviewHost } from '../data/blogDemo';
 import '../styles/blog.css';
 
 const spanishDate = new Intl.DateTimeFormat('es-CO', {
@@ -45,7 +46,10 @@ export function BlogPostPage() {
       .catch((error) => {
         if (!active) return;
 
-        if (error.status === 404) {
+        const demo = isPreviewHost() ? demoPosts.find((p) => p.slug === slug) : null;
+        if (demo) {
+          setArticle(demo);
+        } else if (error.status === 404) {
           setNotFound(true);
         } else {
           setFailed(true);
@@ -102,6 +106,11 @@ export function BlogPostPage() {
           </header>
           <BlogPostImage key={article.image_url || 'fallback'} imageUrl={article.image_url} title={article.title} />
           <div className='blog-content' dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(article.content) }} />
+          <ShareBar title={article.title} />
+          <aside className='blog-cta blog-cta-post' aria-label='Compra en la tienda'>
+            <div><p className='blog-eyebrow'>Del blog a tu mesa</p><h2>Encuentra estos productos en Tu Tiendita</h2><p>Envíos desde Bogotá a toda Colombia.</p></div>
+            <div className='blog-cta-actions'><Link className='blog-btn' to='/'>Ir a la tienda</Link><a className='blog-btn blog-btn-wa' href={`https://wa.me/573107359944?text=${encodeURIComponent(`¡Hola, Tu Tiendita Venezolana! 🇻🇪 Leí "${article.title}" y quiero que me ayuden a comprar.`)}`} target='_blank' rel='noreferrer'>Pedir por WhatsApp</a></div>
+          </aside>
         </article>}
       </main>
 
@@ -174,4 +183,16 @@ function blogPostingJsonLd(article, canonical) {
   if (article.published_at) jsonLd.datePublished = article.published_at;
 
   return jsonLd;
+}
+
+function ShareBar({ title }) {
+  const [copied, setCopied] = useState(false);
+  const url = typeof window !== 'undefined' ? window.location.href : '';
+  const copy = () => navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  return <div className='blog-share' aria-label='Compartir artículo'>
+    <span>Compartir:</span>
+    <a href={`https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`} target='_blank' rel='noreferrer'>WhatsApp</a>
+    <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target='_blank' rel='noreferrer'>Facebook</a>
+    <button type='button' onClick={copy}>{copied ? 'Enlace copiado ✓' : 'Copiar enlace'}</button>
+  </div>;
 }

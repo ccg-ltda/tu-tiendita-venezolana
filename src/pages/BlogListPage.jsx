@@ -9,6 +9,7 @@ import { categoryIcons } from '../data/categories';
 import { policies } from '../data/policies';
 import { api } from '../services/api';
 import { SeoHead } from '../components/common/SeoHead';
+import { demoPosts, isPreviewHost } from '../data/blogDemo';
 import '../styles/blog.css';
 
 const spanishDate = new Intl.DateTimeFormat('es-CO', {
@@ -22,6 +23,7 @@ export function BlogListPage() {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   const [activePolicy, setActivePolicy] = useState(null);
   const navigate = useNavigate();
   const categories = Object.keys(categoryIcons).map((name) => ({ name, slug: null }));
@@ -34,7 +36,9 @@ export function BlogListPage() {
         if (active) setArticles(Array.isArray(result) ? result : []);
       })
       .catch(() => {
-        if (active) setFailed(true);
+        if (!active) return;
+        // En los links de prueba de Vercel, sin servidor del blog, se muestran artículos de ejemplo.
+        if (isPreviewHost()) { setArticles(demoPosts); setIsDemo(true); } else setFailed(true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -67,11 +71,13 @@ export function BlogListPage() {
 
       <main className='blog-main'>
         <Link className='blog-store-link' to='/'><ArrowLeft size={17} aria-hidden='true' />Volver a la tienda</Link>
-        <header className='blog-hero'>
-          <p className='blog-eyebrow'>Sabores, historias y consejos</p>
-          <h1>Blogs</h1>
-          <p>Descubre recetas, productos, cultura y sabores que nos conectan con Venezuela.</p>
+        <header className='blog-hero blog-hero-v2'>
+          <div className='blog-hero-v2-stars' aria-hidden='true'>{Array.from({ length: 8 }, (_, i) => <span key={i} style={{ '--i': i }}>★</span>)}</div>
+          <p className='blog-eyebrow'>El blog de Tu Tiendita</p>
+          <h1>Sabores de Venezuela, <span>historias de casa</span></h1>
+          <p>Recetas, tradiciones y los productos que nos conectan con Venezuela, desde Colombia.</p>
         </header>
+        {isDemo && <p className='blog-demo' role='note'><b>Artículos de ejemplo.</b> Así se verán los artículos que publiquen desde Bunzy cuando el servidor del blog esté activo.</p>}
 
         {loading && <section className='blog-status' role='status'>Cargando artículos…</section>}
 
@@ -83,8 +89,9 @@ export function BlogListPage() {
           Aún no hay artículos publicados.
         </section>}
 
-        {!loading && !failed && articles.length > 0 && <section className='blog-grid' aria-label='Artículos publicados'>
-          {articles.map((article) => <article className='blog-card' key={article.id}>
+        {!loading && !failed && articles.length > 0 && <FeaturedArticle article={articles[0]} />}
+        {!loading && !failed && articles.length > 1 && <section className='blog-grid' aria-label='Más artículos'>
+          {articles.slice(1).map((article) => <article className='blog-card' key={article.id}>
             <BlogImage imageUrl={article.image_url} title={article.title} />
             <div className='blog-card-body'>
               <p className='blog-card-date'><CalendarDays size={15} aria-hidden='true' />{formatPublishedAt(article.published_at)}</p>
@@ -94,6 +101,10 @@ export function BlogListPage() {
               </Link>
             </div>
           </article>)}
+        </section>}
+        {!loading && <section className='blog-cta' aria-label='Ir a la tienda'>
+          <div><p className='blog-eyebrow'>¿Se te antojó?</p><h2>Los sabores de estas historias, a un clic</h2><p>Enviamos desde Bogotá a toda Colombia.</p></div>
+          <div className='blog-cta-actions'><Link className='blog-btn' to='/'>Ir a la tienda</Link><a className='blog-btn blog-btn-wa' href='https://wa.me/573107359944?text=%C2%A1Hola%2C%20Tu%20Tiendita%20Venezolana!%20%F0%9F%87%BB%F0%9F%87%AA%20Vengo%20del%20blog%20y%20quiero%20que%20me%20ayuden%20a%20comprar.' target='_blank' rel='noreferrer'>Escríbenos por WhatsApp</a></div>
         </section>}
       </main>
 
@@ -105,6 +116,18 @@ export function BlogListPage() {
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
     </div>
   );
+}
+
+function FeaturedArticle({ article }) {
+  return <article className='blog-featured'>
+    <BlogImage imageUrl={article.image_url} title={article.title} />
+    <div className='blog-featured-body'>
+      <p className='blog-featured-tag'>Lo más reciente</p>
+      <p className='blog-card-date'><CalendarDays size={15} aria-hidden='true' />{formatPublishedAt(article.published_at)}</p>
+      <h2>{article.title}</h2>
+      <Link className='blog-btn' to={`/blogs/${encodeURIComponent(article.slug)}`}>Leer artículo <ArrowRight size={16} aria-hidden='true' /></Link>
+    </div>
+  </article>;
 }
 
 function BlogImage({ imageUrl, title }) {
