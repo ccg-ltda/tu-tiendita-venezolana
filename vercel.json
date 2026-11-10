@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://api.tutienditavenezolana.com/api/:path*"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }
