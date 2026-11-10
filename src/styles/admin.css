@@ -3,9 +3,8 @@
   display: grid;
   grid-template-columns: minmax(0, 48fr) minmax(0, 52fr);
   width: 100%;
-  height: 100dvh;
-  min-height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh; /* crece si la ventana es baja: así se puede bajar hasta "Iniciar sesión" */
+  overflow-x: hidden;
   background: #faf6ec;
 }
 
@@ -14,7 +13,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-height: 100dvh;
   min-width: 0;
   padding: clamp(32px, 6vw, 88px);
   background:
