@@ -27,13 +27,23 @@ export function useCart(catalog) {
     return () => clearTimeout(timer);
   }, [toastProduct]);
 
-  const setQuantity = (id, quantity) => setCart((current) => {
+  const setQuantity = (id, quantity) => {
+    const product = catalog.find((item) => item.id === id);
+    const added = Math.min(Math.max(0, quantity), Math.max(0, Number(product?.inventory) || 0)) - (cart[id] || 0);
+    if (product && added > 0 && Array.isArray(window.dataLayer)) {
+      window.dataLayer.push({ event: 'add_to_cart', ecommerce: {
+        currency: 'COP', value: Number(product.price) * added,
+        items: [{ item_id: product.slug?.trim() || String(product.id), item_name: product.name, item_category: product.cat, price: Number(product.price), quantity: added }],
+      } });
+    }
+    setCart((current) => {
     const product = catalog.find((item) => item.id === id);
     const next = { ...current };
     const safeQuantity = Math.min(Math.max(0, quantity), Math.max(0, Number(product?.inventory) || 0));
     if (safeQuantity > 0) next[id] = safeQuantity; else delete next[id];
     return next;
-  });
+    });
+  };
   const addProduct = (product) => { if (!cart[product.id]) setQuantity(product.id, 1); setToastProduct(product); };
 
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...catalog.find((product) => product.id === Number(id)), qty })).filter((item) => item.id && item.qty > 0 && item.active !== false);

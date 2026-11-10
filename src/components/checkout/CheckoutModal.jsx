@@ -51,6 +51,8 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
   const mounted = useRef(false);
   const modalOpen = useRef(open);
   const confirmed = useRef(false);
+  const preparedOrderTotal = useRef(null);
+  const preparedOrderReference = useRef('');
   const cartSignature = items.map((item) => `${item.id}:${item.qty}`).sort().join('|');
 
   modalOpen.current = open;
@@ -162,13 +164,21 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
     clearStatusCheck();
     statusToken.current = null;
     idempotencyKey.current = null;
-    if (typeof window.gtag === 'function') {
-      window.gtag('event', 'purchase', {
-        transaction_id: reference,
-        value: couponPreview?.total_cop ?? grandTotal,
-        currency: 'COP',
-        items: items.map((item) => ({ item_id: item.id, item_name: item.name, price: item.price, quantity: item.qty })),
-      });
+    try {
+      const purchaseReference = preparedOrderReference.current;
+      const purchaseKey = 'ga4_purchase_' + purchaseReference;
+      if (purchaseReference && !localStorage.getItem(purchaseKey) && Array.isArray(window.dataLayer)) {
+        window.dataLayer.push({ event: 'purchase', event_id: purchaseReference, ecommerce: {
+          transaction_id: purchaseReference,
+          value: Number(preparedOrderTotal.current),
+          currency: 'COP',
+          shipping: Number(couponPreview?.shipping_cop ?? shipping),
+          items: items.map((item) => ({ item_id: item.slug?.trim() || String(item.id), item_name: item.name, item_category: item.cat, price: Number(item.price), quantity: Number(item.qty) })),
+        } });
+        localStorage.setItem(purchaseKey, '1');
+      }
+    } catch {
+      // Analytics must not interrupt payment confirmation if storage is unavailable.
     }
     onPaymentConfirmed();
     showStatusResult('APPROVED');
@@ -267,6 +277,8 @@ export function CheckoutModal({ open, items, total, shipping = 0, grandTotal, on
         expirationTime: payment.expirationTime,
       });
 
+      preparedOrderTotal.current = order.total;
+      preparedOrderReference.current = order.reference;
       setReference(order.reference);
       checkout.open((result) => {
         if (!mounted.current || !modalOpen.current) return;

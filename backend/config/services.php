@@ -42,6 +42,12 @@ return [
         'admin_email' => env('ORDER_NOTIFICATION_EMAIL'),
     ],
 
+    'meta_conversions' => [
+        'pixel_id' => env('META_PIXEL_ID'),
+        'access_token' => env('META_CONVERSIONS_API_TOKEN'),
+        'api_version' => env('META_CONVERSIONS_API_VERSION'),
+    ],
+
     'admin_creation' => [
         'allowed' => env('ALLOW_ADMIN_CREATION', false),
     ],

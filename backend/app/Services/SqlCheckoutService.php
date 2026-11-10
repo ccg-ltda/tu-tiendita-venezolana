@@ -20,6 +20,7 @@ use App\Promotions\ProductPromotionPriceResolver;
 use App\Promotions\PromotionContractException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -233,6 +234,17 @@ final class SqlCheckoutService
                     $order->save();
                     if (! $paymentWasApproved && $order->payment_status === 'APPROVED') {
                         $this->enqueueOrderCreatedNotifications($order);
+                        $reference = $order->reference;
+                        $total = $order->total_cop;
+                        $email = $order->customer_email;
+                        $eventTime = $occurred->getTimestamp();
+                        DB::connection('mysql')->afterCommit(static function () use ($reference, $total, $email, $eventTime): void {
+                            try {
+                                app(MetaConversionsApiService::class)->sendPurchase($reference, $total, $email, $eventTime);
+                            } catch (\Throwable) {
+                                Log::warning('Meta purchase event could not be sent.');
+                            }
+                        });
                     }
                 } elseif ($order->payment_last_event_at === null || $occurred->greaterThan($order->payment_last_event_at)) {
                     $order->payment_last_event_at = $occurred; $order->revision++; $order->save();

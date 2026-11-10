@@ -15,4 +15,4 @@
 - [Otros](https://tutienditavenezolana.com/categoria/otros): Otros productos venezolanos.
 
 ## Información
-- [Blog](https://blog.tutienditavenezolana.com/): Artículos y novedades.
+- [Blog](https://tutienditavenezolana.com/blogs): Artículos y novedades.
