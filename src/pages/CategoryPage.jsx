@@ -8,6 +8,7 @@ import { Header } from '../components/layout/Header';
 import { CategoryNav } from '../components/layout/CategoryNav';
 import { TrustStrip } from '../components/layout/TrustStrip';
 import { Footer } from '../components/layout/Footer';
+import { WhatsAppMenu } from '../components/layout/WhatsAppMenu';
 import { Sidebar } from '../components/catalog/Sidebar';
 import { ProductGrid } from '../components/catalog/ProductGrid';
 import { CartDrawer } from '../components/cart/CartDrawer';
@@ -74,6 +75,7 @@ export function CategoryPage() {
       {checkoutOpen && <Suspense fallback={null}><CheckoutModal open={checkoutOpen} items={cartItems} total={total} shipping={shipping} grandTotal={grandTotal} onClose={() => setCheckoutOpen(false)} onPaymentConfirmed={clearCart} /></Suspense>}
       <Toast product={toastProduct} onClose={() => setToastProduct(null)} onOpen={() => setDrawerOpen(true)} />
       <PolicyModal policy={activePolicy} onClose={() => setActivePolicy(null)} />
+      <WhatsAppMenu />
     </div>
   );
 }

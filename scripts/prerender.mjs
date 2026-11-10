@@ -130,6 +130,13 @@ async function main() {
 }
 
 main().catch((error) => {
+  // En Vercel (vistas previas) no hay librerías para abrir Chrome: se omite el
+  // prerender y la vista previa funciona como SPA. El build de producción (dist
+  // que se sube al hosting) se sigue generando en local con prerender completo.
+  if (process.env.VERCEL) {
+    console.warn('[prerender] Omitido en Vercel (vista previa):', error && error.message ? String(error.message).split(String.fromCharCode(10))[0] : error);
+    return;
+  }
   console.error('[prerender] Error fatal:', error);
   process.exitCode = 1;
 });
