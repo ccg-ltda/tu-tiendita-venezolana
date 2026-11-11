@@ -77,6 +77,14 @@ async function prerenderRoute(page, routePath) {
   // El catálogo llega por fetch; dale un respiro extra al render de React.
   await page.waitForSelector('h1', { timeout: 10000 }).catch(() => {});
   // El snippet vuelve a insertar GTM al cargar el HTML generado.
+  // La hoja de fuentes de Google se carga sin bloquear (media=print → all al cargar). Al guardar la foto de la
+  // página ya cargada quedaría media=all (bloqueante): se devuelve a como está en index.html.
+  await page.evaluate(() => {
+    document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com"]').forEach((link) => {
+      link.setAttribute('media', 'print');
+      link.setAttribute('onload', "this.media='all'");
+    });
+  });
   await page.evaluate(() => {
     document.querySelectorAll('script[src^="https://www.googletagmanager.com/gtm.js?"]').forEach((script) => script.remove());
   });
