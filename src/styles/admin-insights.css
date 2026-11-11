@@ -7,7 +7,6 @@
 .ai-muted{color:var(--am);font-size:13px;margin:8px 0}
 .ai-small{font-size:12px}
 .ai-mono{font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap}
-.ai-demo{background:#fff8e1;border:1px solid rgba(244,180,0,.45);color:#6b5200;border-radius:8px;padding:10px 13px;font-size:13px;margin:0 0 16px}
 .ai-chips{display:flex;gap:6px;flex-wrap:wrap}
 .ai-chips button{border:1px solid var(--al);background:var(--ap);color:var(--an);border-radius:999px;min-height:36px;padding:0 13px;font-size:12px;font-weight:700;cursor:pointer}
 .ai-chips button b{margin-left:4px;color:var(--am);font-family:'JetBrains Mono',monospace;font-size:11px}

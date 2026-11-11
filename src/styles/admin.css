@@ -410,7 +410,3 @@
 }
 
 /* Botón "Ver demostración" (solo links de prueba de Vercel) */
-.admin-login-demo { margin-top: 18px; padding-top: 18px; border-top: 1px dashed rgba(15, 35, 80, .2); display: grid; gap: 8px; }
-.admin-login-demo button { min-height: 46px; border-radius: 8px; border: 1px solid #0f2350; background: #fff; color: #0f2350; font-weight: 700; font-size: 15px; cursor: pointer; }
-.admin-login-demo button:hover { background: #0f2350; color: #fff; }
-.admin-login-demo small { color: #65708a; font-size: 12.5px; line-height: 1.4; }

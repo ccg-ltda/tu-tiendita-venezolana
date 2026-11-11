@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../../services/api';
-import { demoCustomers, demoDashboard, demoWhatsApp } from './demoData';
 import '../../../styles/admin-insights.css';
 
 // Panel v2: Dashboard (números), Clientes y WhatsApp.
@@ -17,18 +16,19 @@ const TOPICS = { mayorista: ['Mayorista', 'ai-t-may'], soporte: ['Soporte', 'ai-
 const WA_STATUS = { NEW: ['Nueva', 'ai-s-new'], ATTENDING: ['En atención', 'ai-s-att'], RESOLVED: ['Resuelta', 'ai-s-res'] };
 const waLink = (phone, text) => `https://wa.me/${String(phone || '').replace(/[^\d]/g, '').replace(/^(?!57)(\d{10})$/, '57$1')}?text=${encodeURIComponent(text)}`;
 
-function DemoNotice() {
-  return <p className='ai-demo' role='note'><b>Datos de ejemplo.</b> Esta sección mostrará los datos reales cuando los desarrolladores publiquen la actualización del servidor.</p>;
-}
 
-function useLoad(loader, demo, deps) {
-  const [state, setState] = useState({ loading: true, data: null, error: '', isDemo: false });
+function useLoad(loader, deps) {
+  const [state, setState] = useState({ loading: true, data: null, error: '' });
   const load = useCallback(() => {
     const controller = new AbortController();
     setState((s) => ({ ...s, loading: true, error: '' }));
     loader(controller.signal)
-      .then((data) => setState({ loading: false, data, error: '', isDemo: false }))
-      .catch((e) => { if (e?.name === 'AbortError') return; setState(notFound(e) ? { loading: false, data: demo(), error: '', isDemo: true } : { loading: false, data: null, error: e?.message || 'No se pudo cargar.', isDemo: false }); });
+      .then((data) => setState({ loading: false, data, error: '' }))
+      .catch((e) => {
+        if (e?.name === 'AbortError') return;
+        const error = notFound(e) ? 'Esta sección aún no está activa en el servidor: falta publicar la actualización del backend (migración).' : (e?.message || 'No se pudo cargar.');
+        setState({ loading: false, data: null, error });
+      });
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -41,14 +41,13 @@ export function AdminInsightsDashboard() {
   const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const range = useMemo(() => { const to = new Date(); const from = new Date(); from.setDate(to.getDate() - (days - 1)); return { from: isoDay(from), to: isoDay(to) }; }, [days]);
-  const [{ loading, data, error, isDemo }] = useLoad((signal) => api.getAdminDashboard({ ...range, signal }), () => demoDashboard(days), [range.from, range.to]);
+  const [{ loading, data, error }] = useLoad((signal) => api.getAdminDashboard({ ...range, signal }), [range.from, range.to]);
 
   return <section className='ai-wrap' aria-labelledby='ai-dash-title'>
     <div className='ai-head'>
       <div><p className='admin-eyebrow'>Cómo va la tienda</p><h2 id='ai-dash-title' className='ai-title'>Ventas</h2></div>
       <div className='ai-chips' role='group' aria-label='Periodo'>{[7, 30, 90].map((d) => <button key={d} type='button' className={days === d ? 'is-on' : ''} onClick={() => setDays(d)}>{d} días</button>)}</div>
     </div>
-    {isDemo && <DemoNotice />}
     {loading && !data && <p className='ai-muted'>Cargando…</p>}
     {error && <p className='admin-inline-error'>{error}</p>}
     {data && <>
@@ -90,7 +89,7 @@ function DayBars({ rows }) {
 
 /* ---------------- Clientes ---------------- */
 export function AdminCustomersPage() {
-  const [{ loading, data, error, isDemo }] = useLoad((signal) => api.listAdminCustomers({ signal }), demoCustomers, []);
+  const [{ loading, data, error }] = useLoad((signal) => api.listAdminCustomers({ signal }), []);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const list = useMemo(() => (data?.customers || []).filter((c) => {
@@ -110,7 +109,6 @@ export function AdminCustomersPage() {
   return <div className='admin-content'>
     <div className='admin-page-heading'><div><p className='admin-eyebrow'>Relación con clientes</p><h1>Clientes</h1><p>Quién compra, cuánto y hace cuánto. Solo clientes con al menos un pago aprobado.</p></div>
       <button type='button' className='ai-btn ai-btn-ghost' onClick={exportCsv} disabled={!list.length}>Exportar CSV</button></div>
-    {isDemo && <DemoNotice />}
     <div className='ai-toolbar'>
       <label className='ai-search'><span className='sr-only'>Buscar cliente</span><input type='search' placeholder='Buscar por nombre, correo, ciudad o teléfono' value={q} onChange={(e) => setQ(e.target.value)} /></label>
       <div className='ai-chips' role='group' aria-label='Filtrar clientes'>
@@ -142,8 +140,8 @@ const QUICK = {
 
 export function AdminWhatsAppPage() {
   const [tick, setTick] = useState(0);
-  const [{ loading, data, error, isDemo }] = useLoad((signal) => api.listAdminWhatsAppRequests({ signal }), demoWhatsApp, [tick]);
-  const [local, setLocal] = useState(null); // copia editable (modo ejemplo o mientras se guarda)
+  const [{ loading, data, error }] = useLoad((signal) => api.listAdminWhatsAppRequests({ signal }), [tick]);
+  const [local, setLocal] = useState(null); // copia editable mientras se guarda
   const [filter, setFilter] = useState('open');
   const [form, setForm] = useState({ name: '', phone: '', topic: 'mayorista', message: '' });
   const [msg, setMsg] = useState('');
@@ -157,19 +155,16 @@ export function AdminWhatsAppPage() {
     const extra = patch.assigned_admin_id && r.status === 'NEW' && !patch.status ? { status: 'ATTENDING' } : {};
     const assignedName = 'assigned_admin_id' in patch ? (local.admins.find((a) => a.id === Number(patch.assigned_admin_id))?.name ?? null) : r.assigned_name;
     setLocal((l) => ({ ...l, requests: l.requests.map((x) => (x.id === r.id ? { ...x, ...patch, ...extra, assigned_name: assignedName } : x)) }));
-    if (isDemo) return;
     try { await api.updateAdminWhatsAppRequest(r.id, patch); } catch (e) { setMsg(e.message); setTick((t) => t + 1); }
   };
   const create = async (e) => {
     e.preventDefault(); setMsg('');
     if (!form.name.trim() || form.phone.replace(/\D/g, '').length < 7) { setMsg('Escribe nombre y teléfono.'); return; }
-    if (isDemo) { setLocal((l) => ({ ...l, requests: [{ id: Date.now(), ...form, status: 'NEW', assigned_admin_id: null, assigned_name: null, created_at: new Date().toISOString() }, ...l.requests] })); setForm({ name: '', phone: '', topic: form.topic, message: '' }); setMsg('Registrada (ejemplo).'); return; }
     try { await api.createAdminWhatsAppRequest(form); setForm({ name: '', phone: '', topic: form.topic, message: '' }); setMsg('Solicitud registrada.'); setTick((t) => t + 1); } catch (err) { setMsg(err.message); }
   };
 
   return <div className='admin-content'>
     <div className='admin-page-heading'><div><p className='admin-eyebrow'>Menú de WhatsApp de la tienda</p><h1>WhatsApp</h1><p>Solicitudes de mayoristas, soporte y ayuda para comprar: quién las atiende y en qué van.</p></div></div>
-    {isDemo && <DemoNotice />}
     {loading && !local && <p className='ai-muted'>Cargando…</p>}
     {error && <p className='admin-inline-error'>{error}</p>}
     {local && <>
