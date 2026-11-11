@@ -4,6 +4,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/blog",
+      "destination": "/api/bunzy-blog"
+    },
+    {
+      "source": "/api/blog/:slug",
+      "destination": "/api/bunzy-blog?slug=:slug"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://api.tutienditavenezolana.com/api/:path*"
     },
