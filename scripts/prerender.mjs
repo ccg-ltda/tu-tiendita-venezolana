@@ -90,7 +90,9 @@ async function main() {
   if (!existsSync(DIST_DIR)) throw new Error('dist/ no existe. Corré "vite build" antes del prerender.');
 
   console.log(`[prerender] Leyendo catálogo de ${API_URL} ...`);
-  const routes = await fetchRoutes();
+  // En las vistas previas de Vercel solo se preparan inicio, categorías y blog (cada página tarda ~5 s allá).
+  // Las páginas de producto igual funcionan: cargan de la forma normal. El build real (hosting) prepara todas.
+  const routes = (await fetchRoutes()).filter((r) => !process.env.VERCEL || !r.path.startsWith('/producto/'));
   console.log(`[prerender] ${routes.length} rutas a renderizar.`);
 
   const server = spawn('npx', ['serve', '-s', 'dist', '-l', String(PORT)], {
