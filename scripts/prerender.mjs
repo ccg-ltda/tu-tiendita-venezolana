@@ -103,7 +103,11 @@ async function main() {
     // El servidor estático local corre en un origin distinto al dominio real
     // (CORS lo bloquearía). Es un Chrome efímero solo para scraping en build
     // time, nunca expuesto a usuarios, así que desactivar CORS acá es seguro.
-    const browser = await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
+    // En Vercel no viene Chrome: se usa @sparticuz/chromium (Chrome para servidores). En local y en el
+    // hosting de los desarrolladores sigue el Chrome normal de puppeteer, igual que antes.
+    const browser = process.env.VERCEL
+      ? await (async () => { const chromium = (await import('@sparticuz/chromium')).default; return puppeteer.launch({ headless: true, executablePath: await chromium.executablePath(), args: [...chromium.args, '--disable-web-security'] }); })()
+      : await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
     try {
       const page = await browser.newPage();
       await page.setRequestInterception(true);
