@@ -77,6 +77,14 @@ async function prerenderRoute(page, routePath) {
   // El catálogo llega por fetch; dale un respiro extra al render de React.
   await page.waitForSelector('h1', { timeout: 10000 }).catch(() => {});
   // El snippet vuelve a insertar GTM al cargar el HTML generado.
+  // La hoja de fuentes de Google se carga sin bloquear (media=print → all al cargar). Al guardar la foto de la
+  // página ya cargada quedaría media=all (bloqueante): se devuelve a como está en index.html.
+  await page.evaluate(() => {
+    document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com"]').forEach((link) => {
+      link.setAttribute('media', 'print');
+      link.setAttribute('onload', "this.media='all'");
+    });
+  });
   await page.evaluate(() => {
     document.querySelectorAll('script[src^="https://www.googletagmanager.com/gtm.js?"]').forEach((script) => script.remove());
   });
@@ -90,7 +98,9 @@ async function main() {
   if (!existsSync(DIST_DIR)) throw new Error('dist/ no existe. Corré "vite build" antes del prerender.');
 
   console.log(`[prerender] Leyendo catálogo de ${API_URL} ...`);
-  const routes = await fetchRoutes();
+  // En las vistas previas de Vercel solo se preparan inicio, categorías y blog (cada página tarda ~5 s allá).
+  // Las páginas de producto igual funcionan: cargan de la forma normal. El build real (hosting) prepara todas.
+  const routes = (await fetchRoutes()).filter((r) => !process.env.VERCEL || !r.path.startsWith('/producto/'));
   console.log(`[prerender] ${routes.length} rutas a renderizar.`);
 
   const server = spawn('npx', ['serve', '-s', 'dist', '-l', String(PORT)], {
@@ -103,7 +113,11 @@ async function main() {
     // El servidor estático local corre en un origin distinto al dominio real
     // (CORS lo bloquearía). Es un Chrome efímero solo para scraping en build
     // time, nunca expuesto a usuarios, así que desactivar CORS acá es seguro.
-    const browser = await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
+    // En Vercel no viene Chrome: se usa @sparticuz/chromium (Chrome para servidores). En local y en el
+    // hosting de los desarrolladores sigue el Chrome normal de puppeteer, igual que antes.
+    const browser = process.env.VERCEL
+      ? await (async () => { const chromium = (await import('@sparticuz/chromium')).default; return puppeteer.launch({ headless: true, executablePath: await chromium.executablePath(), args: [...chromium.args, '--disable-web-security'] }); })()
+      : await puppeteer.launch({ headless: true, args: ['--disable-web-security'] });
     try {
       const page = await browser.newPage();
       await page.setRequestInterception(true);
