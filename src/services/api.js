@@ -1,4 +1,8 @@
+import { demoResponse } from '../utils/adminDemo';
 async function request(path, options = {}) {
+  // Modo demostración (solo links de prueba): el panel se responde sin ir al servidor.
+  const demo = demoResponse(path);
+  if (demo !== undefined) return demo;
   const API_URL = import.meta.env.VITE_API_URL || '';
   const { headers = {}, ...fetchOptions } = options;
   const isFormData = fetchOptions.body instanceof FormData;

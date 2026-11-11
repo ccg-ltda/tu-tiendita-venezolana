@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import branding from '../../data/branding.json';
 import { api } from '../../services/api';
+import { isPreviewHost, startAdminDemo } from '../../utils/adminDemo';
 import '../../styles/admin.css';
 
 export function AdminLoginPage() {
@@ -177,6 +178,13 @@ export function AdminLoginPage() {
                             {loading ? 'Ingresando...' : 'Iniciar sesión'}
                         </button>
                     </form>
+
+                    {isPreviewHost() && (
+                        <div className='admin-login-demo'>
+                            <button type='button' onClick={() => { startAdminDemo(); navigate('/admin', { replace: true }); }}>Ver demostración</button>
+                            <small>Solo en este link de prueba: entra sin clave y con datos de ejemplo. No muestra datos reales.</small>
+                        </div>
+                    )}
 
                     <p className='admin-login-security'>
                         Acceso exclusivo para personal autorizado.
