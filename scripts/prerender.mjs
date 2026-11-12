@@ -88,7 +88,9 @@ async function prerenderRoute(page, routePath) {
   await page.evaluate(() => {
     document.querySelectorAll('script[src^="https://www.googletagmanager.com/gtm.js?"]').forEach((script) => script.remove());
   });
-  const html = await page.content();
+  // Vite inserta precargas de módulos con la dirección completa del servidor local
+  // (http://127.0.0.1:4173/assets/...). Publicadas así, fallan en la web real: se dejan relativas.
+  const html = (await page.content()).replaceAll(BASE_URL, '');
   const outPath = await outputPathFor(routePath);
   await mkdir(path.dirname(outPath), { recursive: true });
   await writeFile(outPath, html, 'utf8');
