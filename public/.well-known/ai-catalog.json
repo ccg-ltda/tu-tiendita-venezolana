@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "identifier": "urn:air:tutienditavenezolana.com:tienda",
+      "displayName": "Tu Tiendita Venezolana",
+      "description": "Tienda online de productos venezolanos en Colombia. Envíos desde Bogotá para toda Colombia. Pago en línea con Wompi (tarjetas, PSE, Nequi, DaviPlata).",
+      "type": "text/markdown",
+      "url": "https://tutienditavenezolana.com/llms.txt",
+      "tags": ["ecommerce", "productos venezolanos", "colombia", "harina pan", "maltas", "rones"],
+      "representativeQueries": [
+        "dónde comprar harina PAN en Colombia",
+        "tienda online de productos venezolanos con envío a toda Colombia",
+        "comprar malta y refrescos venezolanos en Bogotá",
+        "dulces y snacks venezolanos a domicilio"
+      ]
+    }
+  ]
+}
