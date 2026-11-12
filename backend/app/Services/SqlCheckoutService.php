@@ -238,9 +238,11 @@ final class SqlCheckoutService
                         $total = $order->total_cop;
                         $email = $order->customer_email;
                         $eventTime = $occurred->getTimestamp();
-                        DB::connection('mysql')->afterCommit(static function () use ($reference, $total, $email, $eventTime): void {
+                        $customer = ['name' => $order->customer_name, 'phone' => $order->customer_phone, 'city' => $order->city,
+                            'region' => $order->region, 'num_items' => (int) $order->items()->sum('quantity')];
+                        DB::connection('mysql')->afterCommit(static function () use ($reference, $total, $email, $eventTime, $customer): void {
                             try {
-                                app(MetaConversionsApiService::class)->sendPurchase($reference, $total, $email, $eventTime);
+                                app(MetaConversionsApiService::class)->sendPurchase($reference, $total, $email, $eventTime, $customer);
                             } catch (\Throwable) {
                                 Log::warning('Meta purchase event could not be sent.');
                             }

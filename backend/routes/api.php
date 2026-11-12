@@ -6,6 +6,7 @@ use App\Http\Controllers\Public\CheckoutCouponPreviewController;
 use App\Http\Controllers\Webhooks\WompiWebhookController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BunzyController;
+use App\Http\Controllers\Public\WhatsAppClickController;
 use App\Http\Middleware\EnsureWebhookPayloadSize;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,9 @@ Route::post('/webhooks/wompi', [WompiWebhookController::class, 'handle'])
 
 Route::post('/bunzy/webhook', [BunzyController::class, 'webhook'])
     ->middleware([EnsureWebhookPayloadSize::class, 'throttle:bunzy-webhook']);
+
+Route::post('/whatsapp-clicks', [WhatsAppClickController::class, 'store'])
+    ->middleware('throttle:whatsapp-click');
 
 Route::get('/blog', [BlogController::class, 'index'])
     ->middleware('throttle:public-blog');

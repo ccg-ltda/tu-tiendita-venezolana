@@ -13,7 +13,7 @@ export function Header({ cartCount, onCartOpen, search, onSearch, homeHref = '#i
 
       <header>
         <div className='header-inner'>
-          <a className='logo-wrap' href={homeHref} aria-label='Ir al inicio'>
+          <a className='logo-wrap' href={homeHref} aria-label='Tu Tiendita Venezolana, ir al inicio'>
             <div className='logo-mark'>
               <img src={logoSrc} alt='Tu Tiendita Venezolana' />
             </div>

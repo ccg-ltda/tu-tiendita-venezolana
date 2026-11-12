@@ -22,7 +22,7 @@ final class AdminActivityController extends Controller
             'limit' => ['nullable', 'integer', 'min:1'],
             'before_id' => ['nullable', 'integer', 'min:1'],
             'admin_id' => ['nullable', 'integer', 'min:1'],
-            'resource_type' => ['nullable', Rule::in(['PRODUCT', 'PROMOTION', 'COUPON', 'ORDER', 'CATEGORY', 'SUBCATEGORY', 'ADMIN', 'AUTH'])],
+            'resource_type' => ['nullable', Rule::in(['PRODUCT', 'PROMOTION', 'COUPON', 'ORDER', 'CATEGORY', 'SUBCATEGORY', 'ADMIN', 'AUTH', 'WHATSAPP_REQUEST'])],
             'action' => ['nullable', Rule::in(['CREATE', 'UPDATE', 'STATUS_CHANGE', 'ACTIVATE', 'DEACTIVATE', 'LOGIN', 'LOGOUT'])],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],

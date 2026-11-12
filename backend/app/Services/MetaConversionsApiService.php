@@ -7,7 +7,12 @@ use Illuminate\Support\Facades\Log;
 
 final class MetaConversionsApiService
 {
-    public function sendPurchase(string $reference, int $total, ?string $email, int $eventTime): void
+    /**
+     * @param array{name?: ?string, phone?: ?string, city?: ?string, region?: ?string, num_items?: int} $customer
+     *        Datos extra del comprador (opcional). Van cifrados (SHA-256) y ayudan a que Meta
+     *        reconozca a más compradores (mejor "calidad de coincidencia" del evento).
+     */
+    public function sendPurchase(string $reference, int $total, ?string $email, int $eventTime, array $customer = []): void
     {
         $pixelId = config('services.meta_conversions.pixel_id');
         $token = config('services.meta_conversions.access_token');
@@ -34,8 +39,9 @@ final class MetaConversionsApiService
                         'event_time' => $eventTime,
                         'event_id' => $reference,
                         'action_source' => 'website',
-                        'user_data' => ['em' => [hash('sha256', $normalizedEmail)]],
-                        'custom_data' => ['currency' => 'COP', 'value' => $total],
+                        'user_data' => $this->userData($normalizedEmail, $customer),
+                        'custom_data' => array_filter(['currency' => 'COP', 'value' => $total, 'order_id' => $reference,
+                            'num_items' => isset($customer['num_items']) ? (int) $customer['num_items'] : null], static fn ($v) => $v !== null),
                     ]],
                 ]);
 
@@ -45,5 +51,30 @@ final class MetaConversionsApiService
         } catch (\Throwable) {
             Log::warning('Meta purchase event could not be sent.');
         }
+    }
+
+    /** Datos del comprador normalizados y cifrados como pide Meta (minúsculas, sin espacios, SHA-256). */
+    private function userData(string $email, array $customer): array
+    {
+        $sha = static fn (string $v): string => hash('sha256', $v);
+        $clean = static fn (?string $v): string => preg_replace('/[^\p{L}]/u', '', mb_strtolower(trim((string) $v))) ?? '';
+        $data = ['em' => [$sha($email)], 'external_id' => [$sha($email)], 'country' => [$sha('co')]];
+
+        $digits = preg_replace('/\D+/', '', (string) ($customer['phone'] ?? '')) ?? '';
+        if (strlen($digits) === 10) $digits = '57'.$digits; // celular colombiano sin indicativo
+        if (strlen($digits) >= 11) $data['ph'] = [$sha($digits)];
+
+        $parts = preg_split('/\s+/', trim((string) ($customer['name'] ?? ''))) ?: [];
+        $first = $clean($parts[0] ?? '');
+        $last = $clean(count($parts) > 1 ? end($parts) : '');
+        if ($first !== '') $data['fn'] = [$sha($first)];
+        if ($last !== '') $data['ln'] = [$sha($last)];
+
+        $city = $clean($customer['city'] ?? '');
+        if ($city !== '') $data['ct'] = [$sha($city)];
+        $region = $clean($customer['region'] ?? '');
+        if ($region !== '') $data['st'] = [$sha($region)];
+
+        return $data;
     }
 }

@@ -50,7 +50,7 @@
 
   /* BANNER */
   .banner-wrap{max-width:1240px;margin:0 auto;padding:28px 24px 0;}
-  .banner-wrap img{width:100%;aspect-ratio:1600/500;border-radius:16px;display:block;box-shadow:0 12px 40px -16px rgba(9,21,51,0.4);}
+  .banner-wrap img{width:100%;aspect-ratio:1600/500;border-radius:16px;display:block;object-fit:cover;object-position:center;box-shadow:0 12px 40px -16px rgba(9,21,51,0.4);}
   @media(max-width:767px){.banner-wrap img{aspect-ratio:780/1360;}}
   .not-found-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--cream);}
   .not-found-card{width:min(560px,100%);padding:42px 32px;text-align:center;border:1px solid var(--line);border-radius:16px;background:var(--paper);box-shadow:0 18px 45px -28px rgba(9,21,51,.45);}
@@ -80,7 +80,7 @@
   /* SIDEBAR */
   .sidebar{}
   .sidebar-sticky{position:sticky;top:160px;}
-  .sidebar h4{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:0 0 10px;}
+  .sidebar h2{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:0 0 10px;}
   .sub-list{list-style:none;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:2px;}
   .sub-item{padding:8px 12px;border-radius:8px;font-size:13px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:all .15s;border:1px solid transparent;}
   .sub-item:hover{background:var(--cream);color:var(--navy);}
@@ -255,3 +255,30 @@
   .toast-sub{font-size:11.5px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .toast-action{background:var(--gold);color:var(--navy-deep);border:none;border-radius:8px;padding:7px 12px;font-size:11.5px;font-weight:700;white-space:nowrap;flex-shrink:0;}
   @media (max-width:520px){ .toast{max-width:100%;} }
+
+/* ===== Menú de WhatsApp (components/layout/WhatsAppMenu.jsx) ===== */
+.wam{position:fixed;right:18px;bottom:18px;z-index:80;font-family:'Inter',sans-serif}
+.wam-btn{display:flex;align-items:center;gap:10px;border:0;cursor:pointer;background:#fff;color:var(--ink);border-radius:999px;padding:9px 18px 9px 9px;box-shadow:0 10px 28px -10px rgba(9,21,51,.5);font:700 14px/1.2 'Inter',sans-serif;transition:transform .18s;text-align:left}
+.wam-btn:hover{transform:translateY(-2px)}
+.wam-btn:focus-visible,.wam-op:focus-visible,.wam-x:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.wam-ic{width:44px;height:44px;border-radius:50%;background:var(--navy);display:grid;place-items:center;flex-shrink:0}
+.wam-ic svg{width:24px;height:24px;fill:#fff}
+.wam-btn small{display:block;font-weight:400;font-size:12px;color:var(--ink-soft)}
+.wam-card{position:absolute;right:0;bottom:66px;width:min(360px,calc(100vw - 36px));background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px -18px rgba(9,21,51,.55);opacity:0;transform:translateY(10px) scale(.98);pointer-events:none;visibility:hidden;transition:opacity .18s,transform .18s,visibility .18s}
+.wam.open .wam-card{opacity:1;transform:none;pointer-events:auto;visibility:visible}
+.wam-head{background:var(--navy);color:#fff;padding:18px 48px 16px 18px;position:relative;border-bottom:4px solid var(--gold)}
+.wam-head b{display:block;font:700 17px/1.25 'Fraunces',serif}
+.wam-head p{margin:6px 0 0;font-size:13px;line-height:1.45;color:rgba(255,255,255,.85)}
+.wam-x{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer}
+.wam-ops{padding:12px;display:grid;gap:8px;background:var(--cream)}
+.wam-op{display:flex;gap:12px;align-items:center;width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px;color:var(--ink);text-decoration:none;transition:border-color .15s,transform .15s}
+.wam-op:hover{border-color:var(--red);transform:translateY(-1px)}
+.wam-n{width:38px;height:38px;border-radius:12px;background:var(--cream);display:grid;place-items:center;font-size:19px;flex-shrink:0}
+.wam-op b{display:block;font-size:14px}
+.wam-op small{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.35}
+.wam-op i{margin-left:auto;font-style:normal;color:var(--red);font-weight:700}
+.wam-pie{padding:10px 16px 14px;font-size:11.5px;color:var(--ink-soft);background:var(--cream);text-align:center}
+@media(max-width:560px){.wam{right:12px;bottom:12px}.wam-btn{padding:7px 14px 7px 7px}.wam-card{bottom:62px}}
+@media(prefers-reduced-motion:reduce){.wam-card,.wam-btn,.wam-op{transition:none}}
+/* Mientras el carrito o el pago están abiertos, el botón de WhatsApp se oculta para no tapar nada. */
+body:has(.drawer.open) .wam,body:has(.co-overlay.open) .wam{display:none}
