@@ -5,16 +5,18 @@ import App from './App';
 import { AdminDataProvider } from './context/AdminDataContext';
 import { CategoryPage } from './pages/CategoryPage';
 import { ProductPage } from './pages/ProductPage';
-import { BlogListPage } from './pages/BlogListPage';
-import { BlogPostPage } from './pages/BlogPostPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SeoHead } from './components/common/SeoHead';
 import { ScrollToTop } from './components/common/ScrollToTop';
 import './styles/global.css';
 import './styles/react.css';
 
-// El admin no lo carga el storefront publico: separarlo en su propio chunk
-// achica el bundle que SI se descarga en cada visita al catalogo (PageSpeed).
+// El blog y el admin no los carga el storefront publico: separarlos en su
+// propio chunk achica el bundle que SI se descarga en cada visita al
+// catalogo (PageSpeed: CSS/JS sin usar en el home).
+const BlogListPage = lazy(() => import('./pages/BlogListPage').then((m) => ({ default: m.BlogListPage })));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
+
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminDashboardPage })));
 const AdminLayout = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminLayout })));
