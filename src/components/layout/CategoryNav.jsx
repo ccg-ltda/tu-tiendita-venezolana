@@ -10,7 +10,17 @@ export function CategoryNav({ categories, active, onSelect }) {
   const containerRef = useRef(null); const activeRef = useRef(null); const [limits, setLimits] = useState({ left: false, right: false });
   const updateLimits = useCallback(() => { const element = containerRef.current; if (!element) return; const remaining = element.scrollWidth - element.clientWidth - element.scrollLeft; setLimits({ left: element.scrollLeft > 1, right: remaining > 1 }); }, []);
   useEffect(() => { updateLimits(); const element = containerRef.current; if (!element) return undefined; const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateLimits); observer?.observe(element); window.addEventListener('resize', updateLimits); return () => { observer?.disconnect(); window.removeEventListener('resize', updateLimits); }; }, [categories, updateLimits]);
-  useEffect(() => { activeRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); requestAnimationFrame(updateLimits); }, [active, updateLimits]);
+  // Centra la categoría activa moviendo solo la barra en horizontal. scrollIntoView también
+  // desplazaba la página entera al cargar en celular (salto de ~200 px) y PageSpeed perdía el LCP.
+  useEffect(() => {
+    const container = containerRef.current;
+    const tab = activeRef.current;
+    if (container && tab) {
+      const offset = tab.getBoundingClientRect().left - container.getBoundingClientRect().left;
+      container.scrollTo({ left: container.scrollLeft + offset - (container.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
+    }
+    requestAnimationFrame(updateLimits);
+  }, [active, updateLimits]);
   const scroll = (left) => containerRef.current?.scrollBy({ left, behavior: 'smooth' });
   return <nav className={`cat-nav${limits.left ? ' has-left-overflow' : ''}${limits.right ? ' has-right-overflow' : ''}`} aria-label='Categorías'><button type='button' className='cat-nav-arrow cat-nav-arrow--left' aria-label='Ver categorías anteriores' onClick={() => scroll(-SCROLL_STEP)} tabIndex={limits.left ? 0 : -1}><ChevronLeft size={18} aria-hidden='true' /></button><div className='cat-nav-inner' ref={containerRef} onScroll={updateLimits}>{categories.map(({ name, slug }) => {
     const Icon = categoryIcons[name] || Package;
