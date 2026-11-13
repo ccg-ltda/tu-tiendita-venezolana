@@ -82,7 +82,7 @@ export default function App() {
         search={search}
         onSearch={setSearch}
       />
-      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={`/assets/banner-navidad-mobile-720.webp 720w, ${branding.bannerMobile} 900w`} sizes='100vw' /><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
+      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={`/assets/banner-navidad-mobile-720.webp 720w, ${branding.bannerMobile} 900w`} sizes='calc(100vw - 48px)' /><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
