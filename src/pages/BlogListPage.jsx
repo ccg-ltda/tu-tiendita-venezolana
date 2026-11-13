@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CalendarDays, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, ChefHat, Coffee, ShoppingBasket, UtensilsCrossed } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { PolicyModal } from '../components/common/PolicyModal';
@@ -72,10 +72,12 @@ export function BlogListPage() {
       <main className='blog-main'>
         <Link className='blog-store-link' to='/'><ArrowLeft size={17} aria-hidden='true' />Volver a la tienda</Link>
         <header className='blog-hero blog-hero-v2'>
-          <div className='blog-hero-v2-stars' aria-hidden='true'>{Array.from({ length: 8 }, (_, i) => <span key={i} style={{ '--i': i }}>★</span>)}</div>
-          <p className='blog-eyebrow'>El blog de Tu Tiendita</p>
-          <h1>Sabores de Venezuela, <span>historias de casa</span></h1>
-          <p>Recetas, tradiciones y los productos que nos conectan con Venezuela, desde Colombia.</p>
+          <div className='blog-hero-v2-text'>
+            <p className='blog-eyebrow'>El blog de Tu Tiendita</p>
+            <h1>Sabores de Venezuela, <span>historias de casa</span></h1>
+            <p>Recetas, tradiciones y los productos que nos conectan con Venezuela, desde Colombia.</p>
+          </div>
+          <img className='blog-hero-v2-art' src='/assets/blog-hero-navidad.webp' alt='' width='1015' height='450' decoding='async' />
         </header>
         {isDemo && <p className='blog-demo' role='note'><b>Artículos de ejemplo.</b> Así se verán los artículos que publiquen desde Bunzy cuando el servidor del blog esté activo.</p>}
 
@@ -91,8 +93,8 @@ export function BlogListPage() {
 
         {!loading && !failed && articles.length > 0 && <FeaturedArticle article={articles[0]} />}
         {!loading && !failed && articles.length > 1 && <section className='blog-grid' aria-label='Más artículos'>
-          {articles.slice(1).map((article) => <article className='blog-card' key={article.id}>
-            <BlogImage imageUrl={article.image_url} title={article.title} />
+          {articles.slice(1).map((article, index) => <article className='blog-card' key={article.id}>
+            <BlogImage imageUrl={article.image_url} title={article.title} variant={index + 1} />
             <div className='blog-card-body'>
               <p className='blog-card-date'><CalendarDays size={15} aria-hidden='true' />{formatPublishedAt(article.published_at)}</p>
               <h2>{article.title}</h2>
@@ -120,7 +122,7 @@ export function BlogListPage() {
 
 function FeaturedArticle({ article }) {
   return <article className='blog-featured'>
-    <BlogImage imageUrl={article.image_url} title={article.title} />
+    <BlogImage imageUrl={article.image_url} title={article.title} variant={0} />
     <div className='blog-featured-body'>
       <p className='blog-featured-tag'>Lo más reciente</p>
       <p className='blog-card-date'><CalendarDays size={15} aria-hidden='true' />{formatPublishedAt(article.published_at)}</p>
@@ -130,12 +132,16 @@ function FeaturedArticle({ article }) {
   </article>;
 }
 
-function BlogImage({ imageUrl, title }) {
+// Si un artículo no trae foto, cada tarjeta usa un fondo e ícono distintos para que el listado no se vea repetido.
+const fallbackIcons = [UtensilsCrossed, Coffee, ChefHat, ShoppingBasket];
+
+function BlogImage({ imageUrl, title, variant = 0 }) {
   const [failed, setFailed] = useState(false);
 
   if (!imageUrl || failed) {
-    return <div className='blog-card-image blog-card-image-fallback' role='img' aria-label={`Imagen no disponible para ${title}`}>
-      <FileText size={34} aria-hidden='true' />
+    const Icon = fallbackIcons[variant % fallbackIcons.length];
+    return <div className={`blog-card-image blog-card-image-fallback blog-fallback-${variant % fallbackIcons.length}`} role='img' aria-label={`Imagen no disponible para ${title}`}>
+      <Icon size={34} aria-hidden='true' />
     </div>;
   }
 
