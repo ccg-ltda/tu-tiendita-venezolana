@@ -64,7 +64,7 @@ export function CategoryPage() {
       {categoryName && <h1 className='sr-only'>{categoryName} venezolanos — Compra online con envío desde Bogotá</h1>}
       <Awning />
       <Header cartCount={cartCount} onCartOpen={() => setDrawerOpen(true)} search={search} onSearch={setSearch} homeHref='/' />
-      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={branding.bannerMobile} /><img src={branding.banner} alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
+      <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={`/assets/banner-navidad-mobile-720.webp 720w, ${branding.bannerMobile} 900w`} sizes='calc(100vw - 48px)' /><img src={branding.banner} srcSet={`/assets/banner-navidad-desktop-1200.webp 1200w, ${branding.banner} 1800w`} sizes='(min-width:1240px) 1192px, calc(100vw - 48px)' alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
       <CategoryNav categories={categories} active={categoryName} onSelect={() => {}} />
       {loading && <div className='catalog-status'>Cargando catálogo…</div>}
       {!loading && catalogError && <div className='catalog-status error'>{catalogError}<button onClick={() => loadProducts(false).catch((error) => setCatalogError(error.message))}>Reintentar</button></div>}
