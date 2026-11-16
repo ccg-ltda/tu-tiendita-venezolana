@@ -24,6 +24,17 @@
   RewriteCond %{HTTP_HOST} ^www\.tutienditavenezolana\.com$ [NC]
   RewriteRule ^ https://tutienditavenezolana.com%{REQUEST_URI} [L,R=301]
 
+  # SEO: las direcciones oficiales (canónicas) van SIN "/" final
+  # (/producto/pepitonas). Apache, por defecto, redirige cada carpeta a su
+  # versión con "/" y Google las marcaba como "Página con redirección".
+  # Se apaga esa redirección y la carpeta prerenderizada se sirve directo.
+  DirectorySlash Off
+  Options -Indexes
+  RewriteCond %{REQUEST_URI} !/$
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}/index.html -f
+  RewriteRule ^(.+)$ /$1/index.html [L]
+
   # Mantener los enlaces anteriores del blog en el dominio principal.
   RewriteRule ^blog/?$ /blogs [R=301,L]
   RewriteRule ^blog/(.+)$ /blogs/$1 [R=301,L,NE]
