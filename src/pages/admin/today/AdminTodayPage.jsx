@@ -7,12 +7,11 @@ import '../../../styles/admin-today.css';
 const PER_PAGE = 50;
 const POLL_MS = 60000;
 
-const STAGES = [
-  { key: 'NEW', label: 'Nuevos', hint: 'Pagados, por empezar' },
-  { key: 'PROCESSING', label: 'Preparando', hint: 'En preparación' },
-  { key: 'READY', label: 'Listos', hint: 'Por enviar' },
-  { key: 'SHIPPED', label: 'En camino', hint: 'Por entregar' },
-  { key: 'DELIVERED', label: 'Entregados', hint: 'Terminados' },
+const SECTIONS = [
+  { key: 'NEW', icon: '🟠', label: 'Nuevos', tile: 'Nuevos', empty: 'Nada nuevo por empezar.' },
+  { key: 'PROCESSING', icon: '📦', label: 'Por preparar', tile: 'Preparar', empty: 'Todo preparado 🛒' },
+  { key: 'READY', icon: '🚚', label: 'Por enviar', tile: 'Enviar', empty: 'Nada por enviar.' },
+  { key: 'SHIPPED', icon: '🏠', label: 'Por entregar', tile: 'Entregar', empty: 'Nada en camino.' },
 ];
 
 /** Qué botón grande ve cada rol según el estado del pedido. */
@@ -68,7 +67,6 @@ function OrderCard({ order, role, open, detail, busy, onToggle, onAdvance }) {
 export function AdminTodayPage() {
   const { user, ordersByKey, orderDetailsById, ordersKey, refreshOrders, loadOrderDetail, updateOrderStatus } = useAdminData();
   const role = user?.role || '';
-  const [stage, setStage] = useState(role === 'ENTREGA' ? 'SHIPPED' : 'NEW');
   const [openId, setOpenId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -102,13 +100,13 @@ export function AdminTodayPage() {
     known.current = ids;
   }, [orders]);
 
-  const visibleStages = role === 'ENTREGA' ? STAGES.filter((item) => ['SHIPPED', 'DELIVERED'].includes(item.key)) : STAGES;
+  const sections = role === 'ENTREGA' ? SECTIONS.filter((item) => item.key === 'SHIPPED') : SECTIONS;
   const counts = useMemo(() => {
     const result = {};
     orders.forEach((order) => { const s = stageOf(order); result[s] = (result[s] || 0) + 1; });
     return result;
   }, [orders]);
-  const list = orders.filter((order) => stageOf(order) === stage);
+  const goTo = (key) => document.getElementById(`hoy-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const toggle = (order) => {
     if (openId === order.id) { setOpenId(null); return; }
@@ -130,42 +128,49 @@ export function AdminTodayPage() {
     }
   };
 
-  const today = new Intl.DateTimeFormat('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const hour = Number(new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hour12: false, timeZone: 'America/Bogota' }).format(new Date()));
+  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const firstName = (user?.name || '').split(' ')[0];
 
   return <>
     <div className='admin-content today-page'>
       <header className='today-heading'>
-        <p className='admin-eyebrow'>{today}</p>
+        <p className='admin-eyebrow'>{greeting}{firstName ? `, ${firstName}` : ''}</p>
         <h1>Hoy</h1>
-        <p>{role === 'ENTREGA' ? 'Pedidos que van en camino.' : 'Lo que hay que preparar, enviar y entregar.'}</p>
+        <p>Lo que hay que mover ahora. Se actualiza solo.</p>
+        <button type='button' className='today-refresh' onClick={() => load(true)} aria-label='Actualizar pedidos'>↻</button>
       </header>
 
-      {fresh > 0 && <button type='button' className='today-fresh' onClick={() => { setFresh(0); setStage('NEW'); }}>
+      {fresh > 0 && <button type='button' className='today-fresh' onClick={() => { setFresh(0); goTo('NEW'); }}>
         {fresh === 1 ? 'Llegó 1 pedido nuevo' : `Llegaron ${fresh} pedidos nuevos`} · Ver
       </button>}
 
-      <nav className='today-stages' aria-label='Etapas del pedido'>
-        {visibleStages.map((item) => <button key={item.key} type='button' className={stage === item.key ? 'is-active' : ''} onClick={() => { setStage(item.key); setOpenId(null); }}>
-          <span>{item.label}</span><b>{counts[item.key] || 0}</b>
-        </button>)}
-      </nav>
+      <div className='today-tiles'>
+        {sections.map((item) => <button key={item.key} type='button' onClick={() => goTo(item.key)}><b>{counts[item.key] || 0}</b><span>{item.tile}</span></button>)}
+      </div>
 
       {loading && <div className='admin-orders-state'>Cargando pedidos…</div>}
       {!loading && record?.error && <div className='admin-orders-state admin-orders-state-error'><p>{record.error}</p><button type='button' onClick={() => load(true)}>Reintentar</button></div>}
-      {!loading && !record?.error && list.length === 0 && <div className='admin-orders-state'>No hay pedidos en esta etapa.</div>}
 
-      <div className='today-list'>
-        {list.map((order) => <OrderCard
-          key={order.id}
-          order={order}
-          role={role}
-          open={openId === order.id}
-          detail={orderDetailsById[String(order.id)]?.data}
-          busy={busyId === order.id}
-          onToggle={() => toggle(order)}
-          onAdvance={advance}
-        />)}
-      </div>
+      {!loading && !record?.error && sections.map((item) => {
+        const list = orders.filter((order) => stageOf(order) === item.key);
+        return <section key={item.key} id={`hoy-${item.key}`} className='today-section'>
+          <h2>{item.icon} {item.label} <span className='today-badge'>{list.length}</span></h2>
+          {list.length === 0 && <div className='today-empty'>{item.empty}</div>}
+          <div className='today-list'>
+            {list.map((order) => <OrderCard
+              key={order.id}
+              order={order}
+              role={role}
+              open={openId === order.id}
+              detail={orderDetailsById[String(order.id)]?.data}
+              busy={busyId === order.id}
+              onToggle={() => toggle(order)}
+              onAdvance={advance}
+            />)}
+          </div>
+        </section>;
+      })}
     </div>
     <AdminToast toast={toast} onDismiss={() => setToast(null)} />
   </>;
