@@ -9,6 +9,7 @@ const ALL_ROLES = ['ADMIN', 'DESPACHO', 'ENTREGA'];
 // `roles`: quién ve cada opción. DESPACHO y ENTREGA solo trabajan con «Hoy» y «Pedidos».
 const navigation = [
   { label: 'Hoy', icon: 'today', path: '/admin/hoy', roles: ALL_ROLES },
+  { label: 'Pedido manual', icon: 'plus', path: '/admin/manual', roles: ['ADMIN'] },
   { label: 'Dashboard', icon: 'dashboard', path: '/admin', roles: ['ADMIN'] },
   { label: 'Productos', icon: 'products', path: '/admin/products' , roles: ['ADMIN'] },
   { label: 'Promociones', icon: 'promotions', path: '/admin/promotions' , roles: ['ADMIN'] },
@@ -22,6 +23,7 @@ const navigation = [
 function Icon({ name, size = 20 }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const paths = {
+    plus: <><path d='M12 5v14M5 12h14' /></>,
     today: <><circle cx='12' cy='12' r='8.5' /><path d='M12 7.5V12l3 2' /></>,
     dashboard: <><rect x='3.5' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='14' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='3.5' y='14' width='6.5' height='6.5' rx='1' /><rect x='14' y='14' width='6.5' height='6.5' rx='1' /></>,
     products: <><path d='m12 3.5 8 4.5-8 4.5L4 8l8-4.5Z' /><path d='M4 8v8l8 4.5 8-4.5V8M12 12.5V20' /></>,

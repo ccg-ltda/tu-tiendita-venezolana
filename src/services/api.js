@@ -94,6 +94,7 @@ export const api = {
 
   listAdminPromotions: (options = {}) => request('/api/admin/promotions', options),
   listAdminCoupons: (options = {}) => request('/api/admin/coupons', options),
+  createAdminManualOrder: async (data) => { const csrfToken = await getCsrfToken(); return request('/api/admin/orders/manual', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: JSON.stringify(data) }); },
   listAdminActivity: ({ limit = 50, beforeId, adminId, resourceType, action, dateFrom, dateTo, includeAuth = false, signal } = {}) => {
     const query = new URLSearchParams({ limit: String(limit), include_auth: includeAuth ? '1' : '0' });
     if (beforeId) query.set('before_id', String(beforeId));
