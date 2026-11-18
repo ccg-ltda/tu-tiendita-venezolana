@@ -18,6 +18,7 @@ const navigation = [
   { label: 'Pedidos', icon: 'orders', path: '/admin/orders' , roles: ALL_ROLES },
   { label: 'Clientes', icon: 'customers', path: '/admin/customers' , roles: ['ADMIN'] },
   { label: 'WhatsApp', icon: 'whatsapp', path: '/admin/whatsapp' , roles: ['ADMIN'] },
+  { label: 'Usuarios', icon: 'customers', path: '/admin/users', roles: ['ADMIN'] },
   { label: 'Historial', icon: 'activity', path: '/admin/activity' , roles: ['ADMIN'] },
 ];
 
