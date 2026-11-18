@@ -61,7 +61,7 @@ class OrderController extends Controller
             if ($role === 'ENTREGA' && $current['status'] !== 'SHIPPED') {
                 return response()->json(['message' => 'Solo se puede marcar como entregado un pedido que ya va en camino.'], 403);
             }
-            $this->assertTransition($current['status'], $current['payment_status'], $status);
+            $this->assertTransition($current['status'], $current['payment_status'], $status, ($current['channel'] ?? 'WEB') === 'MANUAL');
             $updated = $checkout->adminUpdateOrderStatus($orderId, $status);
         } catch (CheckoutGatewayException $exception) {
             return response()->json(['message' => $this->updateError($exception)], $exception->status());
@@ -110,13 +110,13 @@ class OrderController extends Controller
         return $order;
     }
 
-    private function assertTransition(string $from, string $paymentStatus, string $to): void
+    private function assertTransition(string $from, string $paymentStatus, string $to, bool $manual = false): void
     {
         if ($from === $to) return;
         if ($from === 'DELIVERED' || $from === 'CANCELLED') throw new CheckoutGatewayException(422, 'INVALID_STATUS_TRANSITION');
         $allowed = ['PENDING' => ['PROCESSING'], 'PROCESSING' => ['READY'], 'READY' => ['SHIPPED', 'DELIVERED'], 'SHIPPED' => ['DELIVERED']];
         if (! in_array($to, $allowed[$from] ?? [], true)) throw new CheckoutGatewayException(422, 'INVALID_STATUS_TRANSITION');
-        if ($from === 'PENDING' && $to === 'PROCESSING' && $paymentStatus !== 'APPROVED') throw new CheckoutGatewayException(422, 'PAYMENT_NOT_APPROVED');
+        if ($from === 'PENDING' && $to === 'PROCESSING' && $paymentStatus !== 'APPROVED' && ! $manual) throw new CheckoutGatewayException(422, 'PAYMENT_NOT_APPROVED');
     }
 
     private function updateError(CheckoutGatewayException $exception): string

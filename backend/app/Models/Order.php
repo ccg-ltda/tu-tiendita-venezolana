@@ -9,9 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Order extends Model
 {
     protected $connection = 'mysql';
-    protected $fillable = ['reference', 'status', 'payment_status', 'reservation_status', 'reservation_expires_at', 'paid_at', 'payment_last_event_at', 'idempotency_key_hash', 'checkout_payload_hash', 'release_id', 'release_fingerprint', 'released_at', 'customer_name', 'customer_email', 'customer_phone', 'customer_document', 'address', 'extra', 'city', 'region', 'postal', 'total_cop', 'shipping_cop', 'revision'];
+    protected $fillable = ['reference', 'status', 'payment_status', 'reservation_status', 'reservation_expires_at', 'paid_at', 'payment_last_event_at', 'idempotency_key_hash', 'checkout_payload_hash', 'release_id', 'release_fingerprint', 'released_at', 'customer_name', 'customer_email', 'customer_phone', 'customer_document', 'address', 'extra', 'city', 'region', 'postal', 'total_cop', 'shipping_cop', 'revision', 'channel', 'manual_payment_method', 'internal_note', 'created_by_admin_id'];
     protected $hidden = ['idempotency_key_hash', 'checkout_payload_hash', 'release_fingerprint'];
     protected function casts(): array { return ['reservation_expires_at' => 'datetime', 'paid_at' => 'datetime', 'payment_last_event_at' => 'datetime', 'released_at' => 'datetime', 'total_cop' => 'integer', 'shipping_cop' => 'integer', 'revision' => 'integer']; }
+    public function attachments(): HasMany { return $this->hasMany(OrderAttachment::class); }
     public function items(): HasMany { return $this->hasMany(OrderItem::class); }
     public function payments(): HasMany { return $this->hasMany(PaymentAttempt::class); }
     public function orderCoupon(): HasOne { return $this->hasOne(OrderCoupon::class); }
@@ -25,7 +26,7 @@ class Order extends Model
             return 'PAYMENT_NOT_COMPLETED';
         }
 
-        return $this->payment_status === 'APPROVED' || $this->status !== 'PENDING'
+        return $this->payment_status === 'APPROVED' || $this->status !== 'PENDING' || $this->channel === 'MANUAL'
             ? 'OPERATIONAL'
             : 'AWAITING_PAYMENT';
     }

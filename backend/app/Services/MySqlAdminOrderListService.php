@@ -19,6 +19,7 @@ final class MySqlAdminOrderListService
         if ($flowStatus === 'operational') {
             $query->where(function ($orders): void {
                 $orders->where('payment_status', 'APPROVED')
+                    ->orWhere('channel', 'MANUAL')
                     ->orWhereIn('status', ['PROCESSING', 'READY', 'SHIPPED', 'DELIVERED']);
             });
         } elseif ($flowStatus === 'payment-not-completed') {
@@ -39,6 +40,7 @@ final class MySqlAdminOrderListService
                 'payment_status' => $order->payment_status,
                 'reservation_status' => $order->reservation_status,
                 'payment_flow_status' => $order->paymentFlowStatus(),
+                'channel' => $order->channel,
                 'customer_name' => $order->customer_name,
                 'total' => $order->total_cop,
                 'created_at' => $order->created_at->utc()->format('Y-m-d\\TH:i:s.v\\Z'),

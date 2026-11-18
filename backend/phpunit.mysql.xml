@@ -7,6 +7,7 @@
             <file>tests/Feature/Checkout/MySqlCheckoutConcurrencyTest.php</file>
             <file>tests/Feature/CatalogSeederTest.php</file>
             <file>tests/Feature/AdminRolesTest.php</file>
+            <file>tests/Feature/AdminManualOrderTest.php</file>
         </testsuite>
     </testsuites>
     <groups>
