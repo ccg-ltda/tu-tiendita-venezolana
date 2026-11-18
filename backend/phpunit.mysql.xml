@@ -8,6 +8,7 @@
             <file>tests/Feature/CatalogSeederTest.php</file>
             <file>tests/Feature/AdminRolesTest.php</file>
             <file>tests/Feature/AdminManualOrderTest.php</file>
+            <file>tests/Feature/AdminUsersTest.php</file>
         </testsuite>
     </testsuites>
     <groups>

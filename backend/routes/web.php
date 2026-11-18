@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\AdminActivityController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ManualOrderController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\InsightsController;
 use App\Http\Controllers\Admin\WhatsAppRequestController;
@@ -73,6 +74,9 @@ Route::prefix('api/admin')
 
         // Todo lo demás es solo del administrador.
         Route::middleware(EnsureAdminRole::class.':ADMIN')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::patch('/users/{user}', [UserController::class, 'update']);
         Route::post('/orders/manual', [ManualOrderController::class, 'store']);
         Route::get('/orders/{order}/attachments/{attachment}', [ManualOrderController::class, 'attachment']);
         Route::get('/audit/administrators', [AdminActivityController::class, 'administrators']);
