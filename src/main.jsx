@@ -21,6 +21,7 @@ const AdminLayout = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ 
 const AdminProductsPage = lazy(() => import('./pages/admin/products/AdminProductsPage').then((m) => ({ default: m.AdminProductsPage })));
 const AdminPromotionsPage = lazy(() => import('./pages/admin/promotions/AdminPromotionsPage').then((m) => ({ default: m.AdminPromotionsPage })));
 const AdminCouponsPage = lazy(() => import('./pages/admin/coupons/AdminCouponsPage').then((m) => ({ default: m.AdminCouponsPage })));
+const AdminTodayPage = lazy(() => import('./pages/admin/today/AdminTodayPage').then((m) => ({ default: m.AdminTodayPage })));
 const AdminOrdersPage = lazy(() => import('./pages/admin/orders/AdminOrdersPage').then((m) => ({ default: m.AdminOrdersPage })));
 const AdminCustomersPage = lazy(() => import('./pages/admin/insights/AdminInsights').then((m) => ({ default: m.AdminCustomersPage })));
 const AdminWhatsAppPage = lazy(() => import('./pages/admin/insights/AdminInsights').then((m) => ({ default: m.AdminWhatsAppPage })));
@@ -43,6 +44,7 @@ createRoot(document.getElementById('root')).render(
             <Route path='products' element={<AdminProductsPage />} />
             <Route path='promotions' element={<AdminPromotionsPage />} />
             <Route path='coupons' element={<AdminCouponsPage />} />
+            <Route path='hoy' element={<AdminTodayPage />} />
             <Route path='orders' element={<AdminOrdersPage />} />
             <Route path='customers' element={<AdminCustomersPage />} />
             <Route path='whatsapp' element={<AdminWhatsAppPage />} />
