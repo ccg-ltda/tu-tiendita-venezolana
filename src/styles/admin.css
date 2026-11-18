@@ -345,8 +345,7 @@
   height: 98%;
   display: block;
   object-fit: contain;
-  object-position: -120% 42%;
-  transform: translateY(-10%);
+  object-position: center;
 }
 
 .admin-session-check {
@@ -399,7 +398,11 @@
   }
 
   .admin-login-content { min-height: 100dvh; padding: 42px 32px; }
-  .admin-login-visual { display: none; }
+  .admin-login-content { min-height: auto; }
+  /* En celular y pantallas angostas la ilustración se ve debajo del formulario, no se oculta. */
+  .admin-login-visual { display: grid; height: auto; min-height: 340px; padding: 28px 20px; }
+  .admin-login-visual::before { top: 0; bottom: auto; left: 0; right: 0; width: auto; height: 3px; }
+  .admin-login-banner { width: 100%; height: auto; max-height: 420px; }
 }
 
 @media (max-width: 480px) {

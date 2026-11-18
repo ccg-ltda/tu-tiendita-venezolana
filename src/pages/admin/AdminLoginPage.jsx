@@ -14,7 +14,7 @@ export function AdminLoginPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     const logoSrc = `/${branding.logo.replace(/^\/+/, '')}`;
-    const adminVisualSrc = '/assets/admin-login-visual.jpg';
+    const adminVisualSrc = '/assets/admin-login-visual.webp';
 
     // Redirige al panel si ya existe una sesión administrativa válida.
     useEffect(() => {
