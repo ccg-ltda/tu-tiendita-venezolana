@@ -11,7 +11,7 @@ export function ProductTable({ products, onEdit, onToggleStatus, statusChangingI
       <tbody>{products.map((product) => <tr key={product.id}>
         <td><ProductIdentity product={product} /></td>
         <td>{product.category}</td><td>{product.subcategory}</td><td>{product.presentation}</td>
-        <td className='admin-product-price'>{priceFormatter.format(product.price)}</td><td>{product.inventory}</td>
+        <td className='admin-product-price'>{priceFormatter.format(product.price)}</td><td>{product.inventory <= 0 ? <span className='stock-out'>Agotado</span> : product.inventory}</td>
         <td><ProductStatusBadge active={product.active} /></td>
         <td><div className='admin-product-actions'><button type='button' onClick={() => onEdit(product)}>Editar</button><button type='button' className={product.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggleStatus(product)} disabled={statusChangingId === product.id}>{statusChangingId === product.id ? 'Guardando...' : product.active ? 'Desactivar' : 'Activar'}</button></div></td>
       </tr>)}</tbody>
@@ -27,7 +27,7 @@ function ProductCard({ product, onEdit, onToggleStatus, statusChangingId }) {
       {product.subcategory && <div><dt>Subcategoría</dt><dd>{product.subcategory}</dd></div>}
       <div><dt>Presentación</dt><dd>{product.presentation}</dd></div>
       <div><dt>Precio</dt><dd className='admin-product-price'>{priceFormatter.format(product.price)}</dd></div>
-      <div><dt>Inventario</dt><dd>{product.inventory}</dd></div>
+      <div><dt>Inventario</dt><dd>{product.inventory <= 0 ? <span className='stock-out'>Agotado</span> : product.inventory}</dd></div>
     </dl>
     <div className='admin-product-actions'><button type='button' onClick={() => onEdit(product)}>Editar</button><button type='button' className={product.active ? 'is-deactivate' : 'is-activate'} onClick={() => onToggleStatus(product)} disabled={statusChangingId === product.id}>{statusChangingId === product.id ? 'Guardando...' : product.active ? 'Desactivar' : 'Activar'}</button></div>
   </article>;
