@@ -126,3 +126,13 @@
 .manual-save { margin: 4px 0 0; width: 100%; }
 .manual-error { padding: 12px 14px; border-radius: 12px; background: #fdecee; color: #9d1b29; font-weight: 600; }
 @media (max-width: 480px) { .manual-two { grid-template-columns: 1fr; } }
+
+/* Pie del menú lateral: quién está, instalar app y cerrar sesión */
+.admin-sidebar-who { margin: 0 0 10px; padding: 0 10px; font-size: 12.5px; line-height: 1.3; color: rgba(255, 255, 255, 0.72); }
+.admin-install, .admin-sidebar-logout {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-bottom: 8px; border-radius: 10px;
+  font: 700 14px/1 Inter, system-ui, sans-serif; cursor: pointer;
+}
+.admin-install { border: 0; background: #f4b400; color: #0f2350; }
+.admin-sidebar-logout { border: 1px solid rgba(255, 255, 255, 0.28); background: transparent; color: #fff; }
+.admin-install-hint { margin: 0 0 8px; padding: 0 10px; font-size: 12px; color: rgba(255, 255, 255, 0.72); }

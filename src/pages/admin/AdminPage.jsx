@@ -23,6 +23,7 @@ const navigation = [
 function Icon({ name, size = 20 }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const paths = {
+    install: <><path d='M12 4v10M8 10l4 4 4-4M5 19h14' /></>,
     plus: <><path d='M12 5v14M5 12h14' /></>,
     today: <><circle cx='12' cy='12' r='8.5' /><path d='M12 7.5V12l3 2' /></>,
     dashboard: <><rect x='3.5' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='14' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='3.5' y='14' width='6.5' height='6.5' rx='1' /><rect x='14' y='14' width='6.5' height='6.5' rx='1' /></>,
@@ -74,6 +75,21 @@ export function AdminLayout() {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [iosHint, setIosHint] = useState(false);
+  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isInstalled = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true);
+  useEffect(() => {
+    const onPrompt = (event) => { event.preventDefault(); setInstallPrompt(event); };
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); };
+  }, []);
+  const installApp = async () => {
+    if (installPrompt) { installPrompt.prompt(); await installPrompt.userChoice.catch(() => null); setInstallPrompt(null); } else setIosHint((value) => !value);
+  };
+
   const role = user?.role || '';
   const allowedPaths = navigation.filter((item) => item.roles.includes(role)).map((item) => item.path);
 
@@ -120,7 +136,7 @@ export function AdminLayout() {
 
   return <main className='admin-dashboard'>
     <button className={`admin-drawer-overlay ${menuOpen ? 'is-open' : ''}`} type='button' aria-label='Cerrar menu' onClick={() => setMenuOpen(false)} tabIndex={menuOpen ? 0 : -1} />
-    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div><button className='admin-sidebar-close' type='button' onClick={() => setMenuOpen(false)} aria-label='Cerrar menu'>×</button></div><nav className='admin-navigation'>{visibleNav.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><button type='button' className='admin-nav-item' onClick={() => setMenuOpen(false)}><Icon name='settings' /><span>Configuracion</span><small>Proximamente</small></button></div></aside>
+    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div><button className='admin-sidebar-close' type='button' onClick={() => setMenuOpen(false)} aria-label='Cerrar menu'>×</button></div><nav className='admin-navigation'>{visibleNav.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><p className='admin-sidebar-who'>{name} · {roleLabel}</p>{(installPrompt || isIos) && !isInstalled && <button type='button' className='admin-install' onClick={installApp}><Icon name='install' size={18} /><span>Instalar app</span></button>}{iosHint && <p className='admin-install-hint'>En iPhone: toca Compartir y luego «Añadir a pantalla de inicio».</p>}<button type='button' className='admin-sidebar-logout' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></aside>
     <section className='admin-workspace'><header className={`admin-topbar${isDashboard ? '' : ' admin-topbar--module'}`}><button className='admin-menu-button' type='button' onClick={() => setMenuOpen(true)} aria-label='Abrir menu' aria-expanded={menuOpen}><Icon name='menu' /></button>{isDashboard && <div className='admin-greeting'><p>Buenos dias, <strong>{name}</strong></p><span>{user.username}</span></div>}<div className='admin-account'><div className='admin-avatar' aria-hidden='true'>{initials || 'A'}</div><button className='admin-logout' type='button' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></header><Outlet /></section>
     <nav className='admin-bottom-nav' aria-label='Navegacion principal'>{['/admin/hoy', '/admin/orders', '/admin/products', '/admin'].map((path) => visibleNav.find((entry) => entry.path === path)).filter(Boolean).map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={active ? 'is-active' : ''} onClick={() => navigate(item.path)} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span></button>; })}</nav>
   </main>;
