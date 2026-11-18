@@ -241,6 +241,8 @@ final class SqlCheckoutService
                         $eventTime = $occurred->getTimestamp();
                         $customer = ['name' => $order->customer_name, 'phone' => $order->customer_phone, 'city' => $order->city,
                             'region' => $order->region, 'num_items' => (int) $order->items()->sum('quantity')];
+                        // Si el cliente nuevo (outbox META_COMPRA) está configurado, él envía la compra: así no se duplica el evento.
+                        if (! MetaConversionsClient::configured())
                         DB::connection('mysql')->afterCommit(static function () use ($reference, $total, $email, $eventTime, $customer): void {
                             try {
                                 app(MetaConversionsApiService::class)->sendPurchase($reference, $total, $email, $eventTime, $customer);
