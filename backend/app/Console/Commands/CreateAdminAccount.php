@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 final class CreateAdminAccount extends Command
 {
-    protected $signature = 'admin:create';
+    protected $signature = 'admin:create {--role=ADMIN : ADMIN, DESPACHO o ENTREGA}';
 
     protected $description = 'Creates an initial administrative account securely.';
 
@@ -20,6 +20,12 @@ final class CreateAdminAccount extends Command
         if (app()->environment('production') && ! config('services.admin_creation.allowed', false)) {
             $this->error('La creación de administradores está deshabilitada en producción.');
 
+            return self::FAILURE;
+        }
+
+        $role = strtoupper((string) $this->option('role'));
+        if (! in_array($role, AdminAccountNormalizer::ROLES, true)) {
+            $this->error('El rol debe ser ADMIN, DESPACHO o ENTREGA.');
             return self::FAILURE;
         }
 
@@ -64,7 +70,7 @@ final class CreateAdminAccount extends Command
                 'name' => trim($name),
                 'username' => $username,
                 'password_hash' => Hash::make($password),
-                'role' => 'ADMIN',
+                'role' => $role,
                 'active' => true,
                 'password_changed_at' => now('UTC')->format('Y-m-d\\TH:i:s.v\\Z'),
             ]);

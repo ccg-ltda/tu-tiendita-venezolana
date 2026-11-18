@@ -7,13 +7,15 @@ use App\Models\Order;
 final class MySqlAdminOrderListService
 {
     /** @return array{orders:list<array<string,mixed>>,pagination:array<string,int>} */
-    public function list(int $page, int $perPage, ?string $flowStatus = null): array
+    /** @param list<string>|null $onlyStatuses limita la lista a estos estados (rol ENTREGA) */
+    public function list(int $page, int $perPage, ?string $flowStatus = null, ?array $onlyStatuses = null): array
     {
         if ($page < 1 || $perPage < 1 || $perPage > 100) {
             throw new \InvalidArgumentException('Invalid order page coordinates.');
         }
 
         $query = Order::query();
+        if ($onlyStatuses !== null) $query->whereIn('status', $onlyStatuses);
         if ($flowStatus === 'operational') {
             $query->where(function ($orders): void {
                 $orders->where('payment_status', 'APPROVED')
