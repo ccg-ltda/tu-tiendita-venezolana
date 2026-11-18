@@ -7,20 +7,29 @@ use App\Mail\OrderCreatedCustomerMail;
 use App\Mail\OrderDeliveredCustomerMail;
 use App\Mail\OrderPreparingCustomerMail;
 use App\Mail\OrderShippedCustomerMail;
+use App\Support\Meta\MetaConversionsClient;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /** Delivers an already-persisted notification; never participates in checkout. */
 final class OrderNotificationDeliveryService
 {
-    public function __construct(private readonly OrderNotificationOutboxStore $outbox) {}
+    public function __construct(
+        private readonly OrderNotificationOutboxStore $outbox,
+        private readonly ?MetaConversionsClient $meta = null,
+    ) {}
 
     /** @param array<string,mixed> $entry */
     public function deliver(array $entry): bool
     {
         try {
-            [$recipient, $mail] = $this->mailFor($entry);
-            Mail::to($recipient)->send($mail);
+            if (($entry['notification_type'] ?? null) === 'META_COMPRA') {
+                // No es un correo: es la compra para la API de conversiones de Meta.
+                ($this->meta ?? new MetaConversionsClient())->sendPurchase($entry);
+            } else {
+                [$recipient, $mail] = $this->mailFor($entry);
+                Mail::to($recipient)->send($mail);
+            }
             $this->outbox->removeAfterSuccessfulDelivery($entry['notification_key']);
 
             return true;

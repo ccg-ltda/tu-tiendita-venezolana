@@ -66,7 +66,7 @@ final class OrderNotificationOutboxStore
     {
         $type = $notification['notification_type'] ?? null;
         $recipient = $notification['recipient_kind'] ?? null;
-        $allowed = ['PEDIDO_CREADO' => ['customer', 'admin'], 'EN_PREPARACION' => ['customer'], 'EN_CAMINO' => ['customer'], 'ENTREGADO' => ['customer']];
+        $allowed = ['PEDIDO_CREADO' => ['customer', 'admin'], 'EN_PREPARACION' => ['customer'], 'EN_CAMINO' => ['customer'], 'ENTREGADO' => ['customer'], 'META_COMPRA' => ['meta']];
         if (! is_string($type) || ! isset($allowed[$type]) || ! in_array($recipient, $allowed[$type], true)) throw new \InvalidArgumentException('Invalid notification type.');
         $orderId = $notification['order_id'] ?? null;
         if (! is_int($orderId) || $orderId < 1) throw new \InvalidArgumentException('Invalid notification order.');

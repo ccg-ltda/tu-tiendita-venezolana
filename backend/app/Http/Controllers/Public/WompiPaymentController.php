@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Public;
 use App\Http\Controllers\Controller;
 use App\Services\CheckoutWriterGateway;
 use App\Services\CheckoutGatewayException;
+use App\Support\Meta\MetaConversionsClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -58,6 +59,7 @@ class WompiPaymentController extends Controller
 
             $status = $prepared['idempotency_replayed'] ? 200 : 201;
             Log::info('wompi_prepare_diagnostic_finished', ['idempotency_key_hash' => $keyHash, 'http_status' => $status, 'idempotency_replayed' => $prepared['idempotency_replayed'], 'prepare_ambiguous_marked' => false]);
+            $this->rememberMetaBrowserContext($request, $prepared['reference']);
             return $this->preparedResponse($prepared, $wompi, $status);
         } catch (CheckoutGatewayException $exception) {
             if ($checkout['recover_after_ambiguous_prepare'] && $exception->remoteCode() === 'RESERVATION_EXPIRED') {
@@ -242,6 +244,27 @@ return $postal;
     }
 
     /** @param array{order_id:int,reference:string,payment_status:string,reservation_expires_at:string,total_cop:int,idempotency_replayed:bool} $prepared */
+    /**
+     * Guarda user agent, IP y cookies _fbp/_fbc del comprador para la compra
+     * que luego se envía a la API de conversiones de Meta. Las cookies del
+     * píxel no van cifradas por Laravel, así que se leen de la cabecera cruda
+     * (EncryptCookies las anularía). Nunca debe romper la preparación del pago.
+     */
+    private function rememberMetaBrowserContext(Request $request, mixed $reference): void
+    {
+        if (! is_string($reference) || ! MetaConversionsClient::configured()) return;
+        try {
+            $raw = [];
+            foreach (explode(';', (string) $request->header('Cookie', '')) as $pair) {
+                [$name, $value] = array_pad(explode('=', trim($pair), 2), 2, null);
+                if (in_array($name, ['_fbp', '_fbc'], true) && is_string($value)) $raw[$name] = urldecode($value);
+            }
+            MetaConversionsClient::rememberBrowserContext($reference, $request->userAgent(), $request->ip(), $raw['_fbp'] ?? null, $raw['_fbc'] ?? null);
+        } catch (\Throwable $exception) {
+            Log::warning('meta_capi_context_not_saved', ['error' => $exception->getMessage()]);
+        }
+    }
+
     private function preparedResponse(array $prepared, array $wompi, int $status): JsonResponse
     {
         if ($prepared['total_cop'] > intdiv(PHP_INT_MAX, 100)) {
