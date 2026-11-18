@@ -50,11 +50,11 @@ export function AdminUsersPage() {
 
   return <>
     <div className='admin-content manual-page'>
-      <header className='today-heading'>
+      <div className='today-heading'>
         <p className='admin-eyebrow'>Equipo del panel</p>
         <h1>Usuarios</h1>
         <p>Quién entra al panel y qué puede hacer. Las contraseñas nunca se muestran.</p>
-      </header>
+      </div>
 
       <section className='manual-box'>
         <h2 style={{ marginLeft: 0 }}>Agregar persona</h2>

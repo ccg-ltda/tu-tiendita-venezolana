@@ -118,11 +118,11 @@ export function AdminManualOrderPage() {
 
   return <>
     <div className='admin-content manual-page'>
-      <header className='today-heading'>
+      <div className='today-heading'>
         <p className='admin-eyebrow'>Pedidos por WhatsApp o teléfono</p>
         <h1>Pedido manual</h1>
         <p>Para quien no sabe pedir en la página. Al guardarlo queda listo para preparar y se descuenta del inventario.</p>
-      </header>
+      </div>
 
       <form className='manual-form' autoComplete='off' onSubmit={save}>
         <section className='manual-box'>

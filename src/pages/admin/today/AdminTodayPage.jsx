@@ -134,12 +134,12 @@ export function AdminTodayPage() {
 
   return <>
     <div className='admin-content today-page'>
-      <header className='today-heading'>
+      <div className='today-heading'>
         <p className='admin-eyebrow'>{greeting}{firstName ? `, ${firstName}` : ''}</p>
         <h1>Hoy</h1>
         <p>Lo que hay que mover ahora. Se actualiza solo.</p>
         <button type='button' className='today-refresh' onClick={() => load(true)} aria-label='Actualizar pedidos'>↻</button>
-      </header>
+      </div>
 
       {fresh > 0 && <button type='button' className='today-fresh' onClick={() => { setFresh(0); goTo('NEW'); }}>
         {fresh === 1 ? 'Llegó 1 pedido nuevo' : `Llegaron ${fresh} pedidos nuevos`} · Ver

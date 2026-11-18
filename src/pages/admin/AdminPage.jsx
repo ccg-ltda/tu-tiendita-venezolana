@@ -4,6 +4,7 @@ import branding from '../../data/branding.json';
 import { useAdminData } from '../../context/AdminDataContext';
 import '../../styles/admin-dashboard.css';
 import '../../styles/admin-mobile.css';
+import '../../styles/admin-today.css';
 import { AdminInsightsDashboard } from './insights/AdminInsights';
 
 const ALL_ROLES = ['ADMIN', 'DESPACHO', 'ENTREGA'];
