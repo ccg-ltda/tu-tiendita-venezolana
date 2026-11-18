@@ -45,7 +45,7 @@ export function AdminInsightsDashboard() {
 
   return <section className='ai-wrap' aria-labelledby='ai-dash-title'>
     <div className='ai-head'>
-      <div><p className='admin-eyebrow'>Cómo va la tienda</p><h2 id='ai-dash-title' className='ai-title'>Ventas</h2></div>
+      <div><p className='admin-eyebrow'>Cómo va la tienda</p><h1 id='ai-dash-title' className='ai-title'>Dashboard</h1></div>
       <div className='ai-chips' role='group' aria-label='Periodo'>{[7, 30, 90].map((d) => <button key={d} type='button' className={days === d ? 'is-on' : ''} onClick={() => setDays(d)}>{d} días</button>)}</div>
     </div>
     {loading && !data && <p className='ai-muted'>Cargando…</p>}

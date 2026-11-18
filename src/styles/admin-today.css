@@ -80,7 +80,7 @@
 @media (max-width: 860px) {
   .admin-workspace { padding-bottom: 76px; }
   .admin-bottom-nav {
-    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid rgba(15, 35, 80, 0.12);
     box-shadow: 0 -8px 24px rgba(15, 35, 80, 0.08);
   }
