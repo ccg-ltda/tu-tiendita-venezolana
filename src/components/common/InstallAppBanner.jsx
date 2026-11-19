@@ -14,7 +14,7 @@ const wasDismissedRecently = () => {
 /** Aviso discreto para instalar la tienda como app. Solo en la tienda (no en el panel). */
 export function InstallAppBanner() {
   const { pathname } = useLocation();
-  const inAdmin = pathname.startsWith('/admin');
+  const inAdmin = pathname.startsWith('/admin') || pathname === '/instalar';
   const [prompt, setPrompt] = useState(null);
   const [hidden, setHidden] = useState(true);
   const [iosHelp, setIosHelp] = useState(false);

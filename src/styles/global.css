@@ -98,7 +98,21 @@
   .product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
   @media(max-width:1100px){.product-grid{grid-template-columns:repeat(3,1fr);}}
   @media(max-width:720px){.product-grid{grid-template-columns:repeat(2,1fr);}}
-  @media(max-width:420px){.product-grid{grid-template-columns:1fr;}}
+  /* Celular: siempre 2 columnas y tarjetas más pequeñas (como el Café), en vez de una tarjeta gigante por fila */
+  @media(max-width:720px){
+    .product-grid{gap:10px;}
+    .card{border-radius:12px;}
+    .card:hover{transform:none;}
+    .card-img img{padding:8px;}
+    .card-body{padding:10px;gap:4px;}
+    .card-body h3{font-size:13px;line-height:1.25;}
+    .card-pres{font-size:11px;}
+    .card-price,.promotion-price strong{font-size:14px;}
+    .card-actions{flex-wrap:wrap;gap:6px;padding-top:6px;}
+    .qty-stepper{width:100%;justify-content:space-between;}
+    .qty-stepper button{flex:0 0 38px;}
+    .add-btn{flex:1 1 100%;height:36px;}
+  }
 
   /* CARD — image prominent */
   .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:transform .18s, box-shadow .18s, border-color .18s;}

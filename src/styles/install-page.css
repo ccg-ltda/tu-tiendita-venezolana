@@ -1,0 +1,32 @@
+/* Página de instalación (/instalar y /admin/instalar): una sola pantalla, pensada para el celular. */
+.install-page { min-height: 100dvh; display: grid; place-items: center; padding: 20px 14px; background: #f1ece0; font-family: Inter, system-ui, sans-serif; }
+.install-card { width: 100%; max-width: 440px; box-sizing: border-box; padding: 28px 22px 24px; border-radius: 24px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(15, 35, 80, 0.14); }
+.install-logo { width: 88px; height: 88px; border-radius: 50%; object-fit: contain; }
+.install-card h1 { margin: 14px 0 8px; font: 700 28px/1.15 Fraunces, Georgia, serif; color: #0f2350; }
+.install-lead { margin: 0 0 20px; color: #5c5548; font-size: 15px; line-height: 1.45; }
+.install-main { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 58px; border: 0; border-radius: 16px; background: #f4b400; color: #0f2350; font: 800 18px/1 Inter, system-ui, sans-serif; cursor: pointer; box-shadow: 0 10px 24px rgba(244, 180, 0, 0.35); }
+.install-main:active { transform: scale(0.99); }
+.install-note { margin: 12px 0 0; color: #5c5548; font-size: 14px; }
+.install-steps { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 12px; text-align: left; }
+.install-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.4; color: #243050; }
+.install-steps li > span { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #0f2350; color: #fff; font: 700 14px/1 Inter, sans-serif; }
+.install-steps svg { vertical-align: -3px; }
+.install-warning { margin: 0 0 14px; padding: 11px 14px; border-radius: 12px; background: #fff4d6; color: #5a4300; font-size: 14px; text-align: left; }
+.install-secondary, .install-open { display: grid; place-items: center; min-height: 50px; margin-top: 18px; border: 1.5px solid #0f2350; border-radius: 14px; color: #0f2350; font: 700 15px/1 Inter, sans-serif; text-decoration: none; }
+.install-open { background: #0f2350; color: #fff; }
+.install-done { display: grid; justify-items: center; gap: 8px; color: #2f7d4f; }
+.install-done strong { color: #0f2350; font-size: 18px; }
+.install-done .install-open { width: 100%; }
+.install-other { display: inline-block; margin-top: 18px; color: #5c5548; font-size: 13.5px; text-decoration: underline; }
+
+@media (prefers-color-scheme: dark) {
+  .install-page { background: #0b1226; }
+  .install-card { background: #141d38; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+  .install-card h1, .install-done strong { color: #fff; }
+  .install-lead, .install-note, .install-other { color: #b4bbd0; }
+  .install-steps li { color: #e6e9f2; }
+  .install-steps li > span { background: #f4b400; color: #0f2350; }
+  .install-secondary { border-color: rgba(255, 255, 255, 0.4); color: #fff; }
+  .install-open { background: #d32031; border-color: #d32031; }
+  .install-warning { background: #3a3012; color: #ffe29a; }
+}
