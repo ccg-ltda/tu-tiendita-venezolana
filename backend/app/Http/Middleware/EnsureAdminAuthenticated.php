@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Admin\AdminAccountNormalizer;
 use App\Repositories\MySqlAdminRepository;
 use App\Services\PersistenceException;
 use Closure;
@@ -27,7 +28,7 @@ final class EnsureAdminAuthenticated
             return response()->json(['message' => 'El servicio de autenticación no está disponible.'], 503);
         }
 
-        if ($admin === null || ! $admin['active'] || $admin['role'] !== 'ADMIN') {
+        if ($admin === null || ! $admin['active'] || ! in_array($admin['role'], AdminAccountNormalizer::ROLES, true)) {
             return $this->invalidateSession($request);
         }
 

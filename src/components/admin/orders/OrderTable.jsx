@@ -41,8 +41,7 @@ export function OrderTable({ orders, onViewDetail }) {
               <th>Referencia</th>
               <th>Cliente</th>
               <th>Pago</th>
-              <th>Reserva</th>
-              <th>Estado del pedido</th>
+              <th>Estado</th>
               <th>Total</th>
               <th>Fecha</th>
               <th aria-label='Acciones'>Acciones</th>
@@ -52,15 +51,14 @@ export function OrderTable({ orders, onViewDetail }) {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td className='admin-order-reference'>{order.reference}</td>
-                <td>{order.customer_name}</td>
+                <td className='admin-order-customer' title={order.customer_name}>{order.customer_name}{order.channel === 'MANUAL' && <em className='admin-order-manual'>Manual</em>}</td>
                 <td><span className={`admin-order-status ${paymentStatusClass(order.payment_status)}`}>{paymentStatusLabel(order.payment_status)}</span></td>
-                <td>{order.reservation_status}</td>
                 <td><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></td>
                 <td className='admin-order-total'>{formatCurrency(order.total)}</td>
                 <td>{formatDate(order.created_at)}</td>
                 <td>
                   <button type='button' className='admin-order-detail-button' onClick={() => onViewDetail(order.id)}>
-                    Ver detalle
+                    Ver
                   </button>
                 </td>
               </tr>
@@ -76,7 +74,6 @@ export function OrderTable({ orders, onViewDetail }) {
             <dl className='admin-order-card-details'>
               <div><dt>Cliente</dt><dd>{order.customer_name}</dd></div>
               <div><dt>Pago</dt><dd><span className={`admin-order-status ${paymentStatusClass(order.payment_status)}`}>{paymentStatusLabel(order.payment_status)}</span></dd></div>
-              <div><dt>Reserva</dt><dd>{order.reservation_status}</dd></div>
               <div><dt>Estado del pedido</dt><dd><span className={`admin-order-status ${orderDisplayStatusClass(order)}`}>{orderDisplayStatusLabel(order)}</span></dd></div>
               <div><dt>Total</dt><dd className='admin-order-total'>{formatCurrency(order.total)}</dd></div>
               <div><dt>Fecha</dt><dd>{formatDate(order.created_at)}</dd></div>

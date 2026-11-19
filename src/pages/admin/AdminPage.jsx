@@ -3,22 +3,32 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import branding from '../../data/branding.json';
 import { useAdminData } from '../../context/AdminDataContext';
 import '../../styles/admin-dashboard.css';
+import '../../styles/admin-mobile.css';
+import '../../styles/admin-today.css';
 import { AdminInsightsDashboard } from './insights/AdminInsights';
 
+const ALL_ROLES = ['ADMIN', 'DESPACHO', 'ENTREGA'];
+// `roles`: quién ve cada opción. DESPACHO y ENTREGA solo trabajan con «Hoy» y «Pedidos».
 const navigation = [
-  { label: 'Dashboard', icon: 'dashboard', path: '/admin' },
-  { label: 'Productos', icon: 'products', path: '/admin/products' },
-  { label: 'Promociones', icon: 'promotions', path: '/admin/promotions' },
-  { label: 'Cupones', icon: 'promotions', path: '/admin/coupons' },
-  { label: 'Pedidos', icon: 'orders', path: '/admin/orders' },
-  { label: 'Clientes', icon: 'customers', path: '/admin/customers' },
-  { label: 'WhatsApp', icon: 'whatsapp', path: '/admin/whatsapp' },
-  { label: 'Historial', icon: 'activity', path: '/admin/activity' },
+  { label: 'Hoy', icon: 'today', path: '/admin/hoy', roles: ALL_ROLES },
+  { label: 'Pedido manual', icon: 'plus', path: '/admin/manual', roles: ['ADMIN'] },
+  { label: 'Dashboard', icon: 'dashboard', path: '/admin', roles: ['ADMIN'] },
+  { label: 'Productos', icon: 'products', path: '/admin/products' , roles: ['ADMIN'] },
+  { label: 'Promociones', icon: 'promotions', path: '/admin/promotions' , roles: ['ADMIN'] },
+  { label: 'Cupones', icon: 'promotions', path: '/admin/coupons' , roles: ['ADMIN'] },
+  { label: 'Pedidos', icon: 'orders', path: '/admin/orders' , roles: ALL_ROLES },
+  { label: 'Clientes', icon: 'customers', path: '/admin/customers' , roles: ['ADMIN'] },
+  { label: 'WhatsApp', icon: 'whatsapp', path: '/admin/whatsapp' , roles: ['ADMIN'] },
+  { label: 'Usuarios', icon: 'customers', path: '/admin/users', roles: ['ADMIN'] },
+  { label: 'Historial', icon: 'activity', path: '/admin/activity' , roles: ['ADMIN'] },
 ];
 
 function Icon({ name, size = 20 }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const paths = {
+    install: <><path d='M12 4v10M8 10l4 4 4-4M5 19h14' /></>,
+    plus: <><path d='M12 5v14M5 12h14' /></>,
+    today: <><circle cx='12' cy='12' r='8.5' /><path d='M12 7.5V12l3 2' /></>,
     dashboard: <><rect x='3.5' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='14' y='3.5' width='6.5' height='6.5' rx='1' /><rect x='3.5' y='14' width='6.5' height='6.5' rx='1' /><rect x='14' y='14' width='6.5' height='6.5' rx='1' /></>,
     products: <><path d='m12 3.5 8 4.5-8 4.5L4 8l8-4.5Z' /><path d='M4 8v8l8 4.5 8-4.5V8M12 12.5V20' /></>,
     promotions: <><path d='M12 3.5 14 8l4.5.5-3.35 3 1 4.5L12 13.7 7.85 16l1-4.5-3.35-3L10 8l2-4.5Z' /><path d='M4 20h16' /></>,
@@ -68,6 +78,45 @@ export function AdminLayout() {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [iosHint, setIosHint] = useState(false);
+  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isInstalled = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true);
+  useEffect(() => {
+    const onPrompt = (event) => { event.preventDefault(); setInstallPrompt(event); };
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); };
+  }, []);
+  const installApp = async () => {
+    if (installPrompt) { installPrompt.prompt(); await installPrompt.userChoice.catch(() => null); setInstallPrompt(null); } else setIosHint((value) => !value);
+  };
+
+  const role = user?.role || '';
+  const allowedPaths = navigation.filter((item) => item.roles.includes(role)).map((item) => item.path);
+
+  // Instalable como app (solo en el panel): manifiesto + service worker mínimo.
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = '/panel-app/manifest.webmanifest';
+    document.head.appendChild(link);
+    const theme = document.createElement('meta');
+    theme.name = 'theme-color';
+    theme.content = '#0f2350';
+    document.head.appendChild(theme);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/admin-sw.js', { scope: '/admin' }).catch(() => {});
+
+    return () => { link.remove(); theme.remove(); };
+  }, []);
+
+  // Quien no es ADMIN solo puede estar en sus pantallas.
+  useEffect(() => {
+    if (!user || role === 'ADMIN') return;
+    if (!allowedPaths.includes(location.pathname)) navigate('/admin/hoy', { replace: true });
+  }, [allowedPaths, location.pathname, navigate, role, user]);
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
@@ -85,18 +134,22 @@ export function AdminLayout() {
   const name = user.name || 'Administracion';
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const isDashboard = location.pathname === '/admin';
+  const visibleNav = navigation.filter((item) => item.roles.includes(role));
+  const roleLabel = { ADMIN: 'Administrador', DESPACHO: 'Despacho y entrega', ENTREGA: 'Entrega' }[role] || role;
 
   return <main className='admin-dashboard'>
     <button className={`admin-drawer-overlay ${menuOpen ? 'is-open' : ''}`} type='button' aria-label='Cerrar menu' onClick={() => setMenuOpen(false)} tabIndex={menuOpen ? 0 : -1} />
-    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div><button className='admin-sidebar-close' type='button' onClick={() => setMenuOpen(false)} aria-label='Cerrar menu'>×</button></div><nav className='admin-navigation'>{navigation.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><button type='button' className='admin-nav-item' onClick={() => setMenuOpen(false)}><Icon name='settings' /><span>Configuracion</span><small>Proximamente</small></button></div></aside>
-    <section className='admin-workspace'><header className={`admin-topbar${isDashboard ? '' : ' admin-topbar--module'}`}><button className='admin-menu-button' type='button' onClick={() => setMenuOpen(true)} aria-label='Abrir menu' aria-expanded={menuOpen}><Icon name='menu' /></button>{isDashboard && <div className='admin-greeting'><p>Buenos dias, <strong>{name}</strong></p><span>{user.username}</span></div>}<div className='admin-account'><div className='admin-avatar' aria-hidden='true'>{initials || 'A'}</div><button className='admin-logout' type='button' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></header><Outlet /></section>
+    <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`} aria-label='Navegacion administrativa'><div className='admin-sidebar-brand'><span className='admin-sidebar-logo-surface'><img src={logoSrc} alt='' /></span><div><strong>Tu Tiendita<span> Venezolana</span></strong><small>Panel administrativo</small></div><button className='admin-sidebar-close' type='button' onClick={() => setMenuOpen(false)} aria-label='Cerrar menu'>×</button></div><nav className='admin-navigation'>{visibleNav.map((item) => { const active = item.path === location.pathname; return <button key={item.label} type='button' className={`admin-nav-item ${active ? 'is-active' : ''}`} onClick={() => { setMenuOpen(false); if (item.path) navigate(item.path); }} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{!item.path && <small>Proximamente</small>}</button>; })}</nav><div className='admin-sidebar-bottom'><p className='admin-sidebar-who'>{name} · {roleLabel}</p>{(installPrompt || isIos) && !isInstalled && <button type='button' className='admin-install' onClick={installApp}><Icon name='install' size={18} /><span>Instalar app</span></button>}{iosHint && <p className='admin-install-hint'>En iPhone: toca Compartir y luego «Añadir a pantalla de inicio».</p>}<button type='button' className='admin-sidebar-logout' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></aside>
+    <section className='admin-workspace'><header className={`admin-topbar${isDashboard ? '' : ' admin-topbar--module'}`}><button className='admin-menu-button' type='button' onClick={() => setMenuOpen(true)} aria-label='Abrir menu' aria-expanded={menuOpen}><Icon name='menu' /><span className='admin-menu-label'>Menú</span></button><span className='admin-mobile-brand'><img src={logoSrc} alt='' /><strong>Tu Tiendita <em>Venezolana</em></strong></span>{isDashboard && <div className='admin-greeting'><p>Buenos dias, <strong>{name}</strong></p><span>{user.username}</span></div>}<div className='admin-account'><div className='admin-avatar' aria-hidden='true'>{initials || 'A'}</div><button className='admin-logout' type='button' onClick={handleLogout} disabled={loggingOut}><Icon name='logout' size={18} /><span>{loggingOut ? 'Cerrando sesion...' : 'Cerrar sesion'}</span></button></div></header><Outlet /></section>
+    <nav className='admin-bottom-nav' aria-label='Navegacion principal'>{[['/admin/hoy', 'Hoy'], ['/admin/manual', 'Manual'], ['/admin/orders', 'Pedidos'], ['/admin', 'Resumen']].map(([path, label]) => { const entry = visibleNav.find((item) => item.path === path); return entry ? { ...entry, label } : null; }).filter(Boolean).map((item) => { const active = item.path === location.pathname; return <button key={item.path} type='button' className={active ? 'is-active' : ''} onClick={() => navigate(item.path)} aria-current={active ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span></button>; })}<button type='button' className={menuOpen ? 'is-active' : ''} onClick={() => setMenuOpen(true)} aria-haspopup='true'><Icon name='menu' /><span>Más</span></button></nav>
   </main>;
 }
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAdminData();
-  const role = user?.role || 'Administrador';
+  useEffect(() => { if (user && user.role !== 'ADMIN') navigate('/admin/hoy', { replace: true }); }, [navigate, user]);
+  const role = { ADMIN: 'Administrador', DESPACHO: 'Despacho y entrega', ENTREGA: 'Entrega' }[user?.role] || user?.role || 'Administrador';
 
-  return <div className='admin-content'><div className='admin-page-heading'><div><p className='admin-eyebrow'>Vista general</p><h1>Dashboard</h1><p>Resumen general del panel administrativo.</p></div></div><AdminInsightsDashboard /><section className='admin-module-grid' aria-label='Modulos administrativos preparados'><article className='admin-module-card'><div className='admin-module-icon'><Icon name='products' /></div><div><h2>Productos</h2><p>Consulta el catalogo administrativo.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/products')}>Ver productos</button></article><article className='admin-module-card'><div className='admin-module-icon'><Icon name='orders' /></div><div><h2>Pedidos</h2><p>El seguimiento de pedidos estara disponible aqui.</p></div><button className='admin-module-link' type='button' onClick={() => navigate('/admin/orders')}>Ver pedidos</button></article></section><section className='admin-system-status' aria-labelledby='system-status-title'><div className='admin-section-heading'><div><p className='admin-eyebrow'>Informacion administrativa</p><h2 id='system-status-title'>Estado del sistema</h2></div><span className='admin-active-indicator'><i />Sesion activa</span></div><dl className='admin-status-list'><div><dt>Sesion administrativa</dt><dd><span className='admin-status-dot' />Activa</dd></div><div><dt>Usuario</dt><dd><Icon name='user' size={16} />{user?.name || 'Administracion'}<small>{user?.username}</small></dd></div><div><dt>Rol</dt><dd>{role}</dd></div></dl></section></div>;
+  return <div className='admin-content admin-dash-compact'><AdminInsightsDashboard /><p className='admin-dash-session'><span className='admin-status-dot' />Sesión activa · {user?.name || 'Administración'} <small>{user?.username}</small> · {role}</p></div>;
 }

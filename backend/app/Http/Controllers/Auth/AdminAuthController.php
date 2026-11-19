@@ -31,7 +31,7 @@ final class AdminAuthController extends Controller
             return $this->authenticationUnavailable();
         }
 
-        if ($admin === null || ! $admin['active'] || $admin['role'] !== 'ADMIN' || ! $passwordMatches) {
+        if ($admin === null || ! $admin['active'] || ! in_array($admin['role'], AdminAccountNormalizer::ROLES, true) || ! $passwordMatches) {
             return $this->invalidCredentials();
         }
 

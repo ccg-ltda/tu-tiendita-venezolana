@@ -7,9 +7,11 @@ use Illuminate\Support\Facades\Hash;
 
 final class AdminAccountNormalizer
 {
+    public const ROLES = ['ADMIN', 'DESPACHO', 'ENTREGA'];
+
     public const HEADERS = ['admin_id','name','username','password_hash','role','active','password_changed_at','created_at','updated_at','revision'];
 
-    /** @return array{admin_id:int,name:string,username:string,password_hash:string,role:'ADMIN',active:bool,password_changed_at:string|null,created_at:string,updated_at:string,revision:int} */
+    /** @return array{admin_id:int,name:string,username:string,password_hash:string,role:'ADMIN'|'DESPACHO'|'ENTREGA',active:bool,password_changed_at:string|null,created_at:string,updated_at:string,revision:int} */
     public static function normalize(mixed $account): array
     {
         if (! is_array($account)) throw new AdminAccountContractException('Admin account must be an array.');
@@ -24,7 +26,7 @@ final class AdminAccountNormalizer
         $updatedAt = self::timestamp($account['updated_at'] ?? null);
         $revision = self::integer($account['revision'] ?? null, 1);
 
-        if ($id === null || $name === null || $username === null || $hash === null || $role !== 'ADMIN' || $active === null || $createdAt === null || $updatedAt === null || $revision === null) {
+        if ($id === null || $name === null || $username === null || $hash === null || ! in_array($role, self::ROLES, true) || $active === null || $createdAt === null || $updatedAt === null || $revision === null) {
             throw new AdminAccountContractException('Admin account contract is invalid.');
         }
 
@@ -33,7 +35,7 @@ final class AdminAccountNormalizer
             'name' => $name,
             'username' => $username,
             'password_hash' => $hash,
-            'role' => 'ADMIN',
+            'role' => $role,
             'active' => $active,
             'password_changed_at' => $passwordChangedAt,
             'created_at' => $createdAt,
@@ -56,7 +58,7 @@ final class AdminAccountNormalizer
         return preg_match('/^[a-z0-9._-]{3,40}$/D', $username) === 1 ? $username : null;
     }
 
-    /** @param array<string,mixed> $account @return array{admin_id:int,name:string,username:string,role:'ADMIN',active:bool,password_changed_at:string|null,created_at:string,updated_at:string,revision:int} */
+    /** @param array<string,mixed> $account @return array{admin_id:int,name:string,username:string,role:'ADMIN'|'DESPACHO'|'ENTREGA',active:bool,password_changed_at:string|null,created_at:string,updated_at:string,revision:int} */
     public static function publicView(array $account): array
     {
         $account = self::normalize($account);

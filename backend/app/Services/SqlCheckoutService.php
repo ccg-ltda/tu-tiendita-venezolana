@@ -18,6 +18,7 @@ use App\Models\Subcategory;
 use App\Repositories\MySqlProductPromotionRepository;
 use App\Promotions\ProductPromotionPriceResolver;
 use App\Promotions\PromotionContractException;
+use App\Support\Meta\MetaConversionsClient;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -240,6 +241,8 @@ final class SqlCheckoutService
                         $eventTime = $occurred->getTimestamp();
                         $customer = ['name' => $order->customer_name, 'phone' => $order->customer_phone, 'city' => $order->city,
                             'region' => $order->region, 'num_items' => (int) $order->items()->sum('quantity')];
+                        // Si el cliente nuevo (outbox META_COMPRA) está configurado, él envía la compra: así no se duplica el evento.
+                        if (! MetaConversionsClient::configured())
                         DB::connection('mysql')->afterCommit(static function () use ($reference, $total, $email, $eventTime, $customer): void {
                             try {
                                 app(MetaConversionsApiService::class)->sendPurchase($reference, $total, $email, $eventTime, $customer);
@@ -310,7 +313,7 @@ final class SqlCheckoutService
     {
         $order = Order::query()->with(['items', 'payments'])->find($orderId);
         if ($order === null) return null;
-        return ['id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'payment_flow_status' => $order->paymentFlowStatus(), 'paid_at' => $this->iso($order->paid_at), 'payment' => null, 'customer_name' => $order->customer_name, 'customer_email' => $order->customer_email, 'customer_phone' => $order->customer_phone, 'customer_document' => $order->customer_document, 'address' => $order->address, 'extra' => $order->extra, 'city' => $order->city, 'region' => $order->region, 'postal' => $order->postal, 'total' => $order->total_cop, 'shipping' => $order->shipping_cop, 'created_at' => $this->iso($order->created_at), 'items' => $order->items->map(fn (OrderItem $item): array => ['id' => $item->id, 'product_id' => $item->product_id, 'product_name' => $item->product_name, 'unit_price' => $item->unit_price_cop, 'quantity' => $item->quantity])->all()];
+        return ['id' => $order->id, 'reference' => $order->reference, 'status' => $order->status, 'payment_status' => $order->payment_status, 'reservation_status' => $order->reservation_status, 'payment_flow_status' => $order->paymentFlowStatus(), 'channel' => $order->channel, 'manual_payment_method' => $order->manual_payment_method, 'internal_note' => $order->internal_note, 'attachments' => $order->attachments()->get(['id', 'name', 'mime'])->all(), 'paid_at' => $this->iso($order->paid_at), 'payment' => null, 'customer_name' => $order->customer_name, 'customer_email' => $order->customer_email, 'customer_phone' => $order->customer_phone, 'customer_document' => $order->customer_document, 'address' => $order->address, 'extra' => $order->extra, 'city' => $order->city, 'region' => $order->region, 'postal' => $order->postal, 'total' => $order->total_cop, 'shipping' => $order->shipping_cop, 'created_at' => $this->iso($order->created_at), 'items' => $order->items->map(fn (OrderItem $item): array => ['id' => $item->id, 'product_id' => $item->product_id, 'product_name' => $item->product_name, 'unit_price' => $item->unit_price_cop, 'quantity' => $item->quantity])->all()];
     }
 
     /** @return array{ok:bool,data?:array<string,mixed>,error?:array{code:string}} */
@@ -324,10 +327,74 @@ final class SqlCheckoutService
             if ($order->status === $target) return ['ok' => true, 'data' => ['order_id' => $order->id, 'status' => $order->status, 'updated_at' => $this->iso($order->updated_at), 'revision' => $order->revision, 'idempotency_replayed' => true]];
             $flows = ['PENDING' => ['PROCESSING'], 'PROCESSING' => ['READY'], 'READY' => ['SHIPPED', 'DELIVERED'], 'SHIPPED' => ['DELIVERED']];
             if ($order->status === 'DELIVERED' || $order->status === 'CANCELLED' || ! in_array($target, $flows[$order->status] ?? [], true)) return ['ok' => false, 'error' => ['code' => 'INVALID_STATUS_TRANSITION']];
-            if ($order->status === 'PENDING' && $order->payment_status !== 'APPROVED') return ['ok' => false, 'error' => ['code' => 'PAYMENT_NOT_APPROVED']];
+            if ($order->status === 'PENDING' && $order->payment_status !== 'APPROVED' && $order->channel !== 'MANUAL') return ['ok' => false, 'error' => ['code' => 'PAYMENT_NOT_APPROVED']];
             $order->status = $target; $order->revision++; $order->save();
             $this->enqueueStatusNotification($order, $target);
             return ['ok' => true, 'data' => ['order_id' => $order->id, 'status' => $order->status, 'updated_at' => $this->iso($order->updated_at), 'revision' => $order->revision, 'idempotency_replayed' => false]];
+        }, 3);
+    }
+
+    public const MANUAL_PAYMENT_METHODS = ['EFECTIVO', 'TRANSFERENCIA', 'NEQUI', 'DAVIPLATA', 'DATAFONO', 'CONTRAENTREGA', 'OTRO'];
+
+    /**
+     * Pedido manual (WhatsApp o teléfono), creado por un ADMIN. Descuenta inventario al guardar y nace listo para preparar.
+     * @param array{name:string,phone:string,email:?string,city:string,region:string,address:string,extra:?string} $customer
+     * @param list<array{product_id:int,quantity:int}> $items
+     * @param array{name:string,mime:string,data:string}|null $attachment
+     * @return array{order_id:int,reference:string,total_cop:int,payment_status:string}
+     */
+    public function createManualOrder(array $customer, array $items, string $paymentMethod, bool $paid, ?int $shippingOverride, ?string $note, ?array $attachment, int $adminId): array
+    {
+        if ($items === [] || count($items) > 60) throw new CheckoutReservationPlanningException('INVALID_REQUEST');
+        $merged = [];
+        foreach ($items as $item) $merged[$item['product_id']] = ($merged[$item['product_id']] ?? 0) + $item['quantity'];
+        ksort($merged);
+        $paid = $paid && $paymentMethod !== 'CONTRAENTREGA';
+        $email = $customer['email'] !== null && $customer['email'] !== '' ? $customer['email'] : preg_replace('/\D/', '', $customer['phone']).'@sin-correo.tutienditavenezolana.com';
+
+        return DB::connection('mysql')->transaction(function () use ($customer, $merged, $paymentMethod, $paid, $shippingOverride, $note, $attachment, $adminId, $email): array {
+            $products = Product::query()->whereIn('id', array_keys($merged))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $promotions = $this->promotions->byProductIds(array_keys($merged));
+            $now = now('UTC');
+            $lines = [];
+            $total = 0;
+            foreach ($merged as $productId => $quantity) {
+                $product = $products->get($productId);
+                if ($product === null) throw new CheckoutReservationPlanningException('PRODUCT_NOT_FOUND');
+                if (! $product->active) throw new CheckoutReservationPlanningException('PRODUCT_INACTIVE');
+                if ($product->inventory < $quantity) throw new CheckoutReservationPlanningException('INSUFFICIENT_STOCK');
+                $pricing = $this->effectivePrice($product->price_cop, $promotions[$product->id] ?? null, $now);
+                $subtotal = $pricing['effective_price_cop'] * $quantity;
+                $total += $subtotal;
+                $lines[] = compact('product', 'pricing', 'subtotal', 'quantity');
+            }
+            $shipping = $shippingOverride ?? ($total >= self::FREE_SHIPPING_THRESHOLD_COP ? 0 : self::SHIPPING_FEE_COP);
+            $order = Order::query()->create([
+                'reference' => 'MANUAL-'.Str::uuid(), 'status' => 'PENDING', 'channel' => 'MANUAL', 'manual_payment_method' => $paymentMethod,
+                'internal_note' => $note, 'created_by_admin_id' => $adminId,
+                'payment_status' => $paid ? 'APPROVED' : 'PENDING', 'reservation_status' => 'CONSUMED',
+                'paid_at' => $paid ? $now : null,
+                'idempotency_key_hash' => hash('sha256', 'manual|'.Str::uuid()), 'checkout_payload_hash' => hash('sha256', 'manual|'.json_encode($merged)),
+                'customer_name' => $customer['name'], 'customer_email' => $email, 'customer_phone' => $customer['phone'],
+                'customer_document' => '-', 'address' => $customer['address'], 'extra' => $customer['extra'],
+                'city' => $customer['city'], 'region' => $customer['region'], 'postal' => null,
+                'total_cop' => $total + $shipping, 'shipping_cop' => $shipping, 'revision' => 1,
+            ]);
+            $order->reference = $this->references->generate($order->id, $now);
+            $order->save();
+            foreach ($lines as $line) {
+                OrderItem::query()->create(['order_id' => $order->id, 'product_id' => $line['product']->id, 'product_name' => $line['product']->name,
+                    'unit_price_cop' => $line['pricing']['effective_price_cop'], 'quantity' => $line['quantity'], 'subtotal_cop' => $line['subtotal']]);
+                $line['product']->inventory -= $line['quantity'];
+                $line['product']->revision++;
+                $line['product']->save();
+            }
+            if ($attachment !== null) {
+                \App\Models\OrderAttachment::query()->create(['order_id' => $order->id, 'name' => $attachment['name'], 'mime' => $attachment['mime'],
+                    'data_base64' => $attachment['data'], 'uploaded_by_admin_id' => $adminId]);
+            }
+
+            return ['order_id' => $order->id, 'reference' => $order->reference, 'total_cop' => $order->total_cop, 'payment_status' => $order->payment_status];
         }, 3);
     }
 
@@ -361,6 +428,16 @@ final class SqlCheckoutService
         $payload = $this->notificationPayload($order, $items);
         $this->notifications->enqueue([...$payload, 'notification_type' => 'PEDIDO_CREADO', 'recipient_kind' => 'customer']);
         $this->notifications->enqueue([...$payload, 'notification_type' => 'PEDIDO_CREADO', 'recipient_kind' => 'admin']);
+        // Compra para la API de conversiones de Meta: viaja por el mismo outbox
+        // (reintentos incluidos) y nunca bloquea ni falla el checkout.
+        if (MetaConversionsClient::configured()) {
+            try {
+                $this->notifications->enqueue([...$payload, 'region' => $order->region, 'paid_at' => $this->iso($order->paid_at),
+                    'notification_type' => 'META_COMPRA', 'recipient_kind' => 'meta']);
+            } catch (\Throwable $exception) {
+                Log::warning('Meta purchase could not be queued.', ['order_id' => $order->id, 'error' => $exception->getMessage()]);
+            }
+        }
     }
 
     private function enqueueStatusNotification(Order $order, string $status): void
@@ -372,6 +449,7 @@ final class SqlCheckoutService
             default => null,
         };
         if ($type === null) return;
+        if (str_ends_with((string) $order->customer_email, '@sin-correo.tutienditavenezolana.com')) return; // pedido manual sin correo
         $items = OrderItem::query()->where('order_id', $order->id)->orderBy('id')->get()->map(static fn (OrderItem $item): array => [
             'product_id' => $item->product_id, 'product_name' => $item->product_name,
             'unit_price_cop' => $item->unit_price_cop, 'quantity' => $item->quantity,

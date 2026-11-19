@@ -1,0 +1,25 @@
+/* Panel en celular: mismo estilo de app del Café (encabezado con marca y «Menú», barra inferior, tarjetas). */
+.admin-mobile-brand { display: none; }
+.admin-menu-label { display: none; }
+
+@media (max-width: 860px) {
+  .admin-dashboard .admin-topbar {
+    position: sticky !important; top: 0; left: 0; right: 0; z-index: 15; height: auto !important; min-height: 62px;
+    padding: 10px 16px !important; gap: 10px; background: #0f2350 !important; border-bottom: 3px solid #d32031 !important;
+    display: flex !important; flex-wrap: nowrap !important; align-items: center; justify-content: space-between !important; pointer-events: auto !important;
+  }
+  .admin-dashboard .admin-greeting, .admin-dashboard .admin-account { display: none !important; }
+  .admin-dashboard .admin-mobile-brand { display: inline-flex; align-items: center; gap: 10px; order: 1; min-width: 0; color: #fff; }
+  .admin-dashboard .admin-mobile-brand img { width: 38px; height: 38px; border-radius: 10px; background: #faf6ec; object-fit: cover; flex-shrink: 0; }
+  .admin-dashboard .admin-mobile-brand strong { font: 700 17px/1.1 Fraunces, Georgia, serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .admin-dashboard .admin-mobile-brand em { font-style: normal; color: #f7d765; }
+  .admin-dashboard .admin-menu-button {
+    order: 2; display: inline-flex !important; align-items: center; gap: 8px; flex: 0 0 auto; width: auto !important; height: 42px !important; margin: 0 !important; padding: 0 14px !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.45) !important; border-radius: 12px !important; background: transparent !important; color: #fff !important;
+  }
+  .admin-dashboard .admin-menu-button svg { width: 18px; height: 18px; }
+  .admin-dashboard .admin-menu-label { display: inline; font: 700 14px/1 Inter, system-ui, sans-serif; }
+
+  .admin-dashboard .admin-content { padding: 20px 16px 28px !important; }
+  .admin-dashboard .admin-workspace { background: #faf6ec; }
+}

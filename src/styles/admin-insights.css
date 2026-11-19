@@ -96,3 +96,47 @@
   .ai-table td:first-child::before{display:none}
   .ai-table td:last-child{justify-content:flex-end}
 }
+
+/* Dashboard compacto: todo el resumen cabe en una pantalla. */
+.admin-dash-compact{padding-top:18px!important;padding-bottom:28px!important}
+.admin-dash-compact .ai-wrap{margin-bottom:12px}
+.admin-dash-compact .ai-head{margin-bottom:10px;align-items:center}
+.admin-dash-compact .ai-head .admin-eyebrow{margin:0 0 2px;font-size:10px}
+.admin-dash-compact .ai-title{font-size:clamp(24px,3vw,30px);line-height:1.05}
+.admin-dash-compact .ai-chips button{min-height:32px;padding:0 12px}
+.admin-dash-compact .ai-kpis{gap:10px;margin-bottom:10px}
+.admin-dash-compact .ai-kpi{padding:11px 14px;gap:2px;border-radius:12px}
+.admin-dash-compact .ai-kpi strong{font-size:clamp(20px,2vw,24px)}
+.admin-dash-compact .ai-kpi small{font-size:11px}
+.admin-dash-compact .ai-grid{gap:10px}
+.admin-dash-compact .ai-card{padding:14px 16px;border-radius:12px}
+.admin-dash-compact .ai-card h3{font-size:16px;margin-bottom:10px}
+.admin-dash-compact .ai-rank{gap:6px}.admin-dash-compact .ai-bars{gap:7px}
+.admin-dash-compact .ai-small{margin:6px 0 0}
+.admin-dash-session{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:6px 0 0;font-size:12px;color:var(--am)}
+.admin-dash-session small{font-family:'JetBrains Mono',monospace;font-size:11px}
+@media(max-width:980px){.admin-dash-compact .ai-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-dash-compact .ai-grid{grid-template-columns:1fr}.admin-dash-compact .ai-span2{grid-column:auto}}
+
+/* Menú lateral: que siempre se pueda bajar hasta el final y quepa en pantallas bajas. */
+.admin-dashboard .admin-sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+.admin-dashboard .admin-sidebar-bottom{flex-shrink:0}
+.admin-dashboard .admin-navigation{flex-shrink:0}
+@media(max-height:820px){
+  .admin-dashboard .admin-sidebar{padding-top:18px}
+  .admin-dashboard .admin-sidebar-brand{padding-bottom:16px}
+  .admin-dashboard .admin-navigation{gap:2px;padding-top:14px}
+  .admin-dashboard .admin-nav-item{min-height:38px}
+  .admin-dashboard .admin-sidebar-bottom{padding-top:12px}
+}
+
+/* Tabla de pedidos compacta: cabe sin barra de desplazamiento */
+.admin-orders-table{min-width:0!important;table-layout:auto}
+.admin-orders-table th{padding:10px 12px!important}
+.admin-orders-table td{padding:9px 12px!important;font-size:12.5px;white-space:nowrap}
+.admin-orders-table .admin-order-reference{font-size:11.5px;letter-spacing:-.01em}
+.admin-orders-table .admin-order-customer{max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.admin-order-manual{margin-left:6px;padding:2px 7px;border-radius:999px;background:#f1f4fb;color:#0f2350;font:700 10px/1.2 Inter,sans-serif;font-style:normal;letter-spacing:.04em;text-transform:uppercase}
+.admin-orders-table .admin-order-status{padding:4px 9px;font-size:11px}
+.admin-orders-table .admin-order-total{font-size:13px}
+.admin-orders-table .admin-order-detail-button{min-height:32px;padding:0 14px}
+.admin-orders-table-wrap{overflow-x:auto}

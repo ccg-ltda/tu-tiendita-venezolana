@@ -5,12 +5,15 @@ use App\Http\Controllers\Admin\ProductPromotionController;
 use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\AdminActivityController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\ManualOrderController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\InsightsController;
 use App\Http\Controllers\Admin\WhatsAppRequestController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\Public\ProductController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
+use App\Http\Middleware\EnsureAdminRole;
 use App\Repositories\MySqlCategoryRepository;
 use App\Repositories\MySqlBlogPostRepository;
 use App\Repositories\MySqlProductRepository;
@@ -62,6 +65,20 @@ Route::get('/sitemap.xml', function (MySqlProductRepository $products, MySqlCate
 Route::prefix('api/admin')
     ->middleware(EnsureAdminAuthenticated::class)
     ->group(function () {
+        // Operación diaria: ADMIN, DESPACHO y ENTREGA. El controlador recorta datos y estados según el rol.
+        Route::middleware(EnsureAdminRole::class.':ADMIN,DESPACHO,ENTREGA')->group(function () {
+            Route::get('/orders', [AdminOrderController::class, 'index']);
+            Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
+            Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
+        });
+
+        // Todo lo demás es solo del administrador.
+        Route::middleware(EnsureAdminRole::class.':ADMIN')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::patch('/users/{user}', [UserController::class, 'update']);
+        Route::post('/orders/manual', [ManualOrderController::class, 'store']);
+        Route::get('/orders/{order}/attachments/{attachment}', [ManualOrderController::class, 'attachment']);
         Route::get('/audit/administrators', [AdminActivityController::class, 'administrators']);
         Route::get('/audit', [AdminActivityController::class, 'index']);
         Route::get('/dashboard', [InsightsController::class, 'dashboard']);
@@ -69,9 +86,6 @@ Route::prefix('api/admin')
         Route::get('/whatsapp-requests', [WhatsAppRequestController::class, 'index']);
         Route::post('/whatsapp-requests', [WhatsAppRequestController::class, 'store']);
         Route::patch('/whatsapp-requests/{whatsappRequest}', [WhatsAppRequestController::class, 'update']);
-        Route::get('/orders', [AdminOrderController::class, 'index']);
-        Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
-        Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
         Route::patch('/products/{productId}', [AdminProductController::class, 'update']);
@@ -90,6 +104,7 @@ Route::prefix('api/admin')
         Route::patch('/coupons/{couponId}', [CouponController::class, 'update']);
         Route::get('/products/{productId}/promotion', [ProductPromotionController::class, 'show']);
         Route::patch('/products/{productId}/promotion', [ProductPromotionController::class, 'update']);
+        });
     });
 
 Route::prefix('api/auth')->group(function () {

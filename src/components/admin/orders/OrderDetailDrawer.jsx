@@ -60,11 +60,19 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                 <h3>Cliente</h3>
                 <dl className='admin-order-detail-list'>
                   <div><dt>Nombre</dt><dd>{order.customer_name}</dd></div>
-                  <div><dt>Correo</dt><dd>{order.customer_email}</dd></div>
+                  {order.customer_email && <div><dt>Correo</dt><dd>{order.customer_email}</dd></div>}
                   <div><dt>Teléfono</dt><dd>{order.customer_phone}</dd></div>
-                  <div><dt>Documento</dt><dd>{order.customer_document}</dd></div>
+                  {order.customer_document && <div><dt>Documento</dt><dd>{order.customer_document}</dd></div>}
                 </dl>
               </section>
+              {order.channel === 'MANUAL' && <section>
+                <h3>Pedido manual</h3>
+                <dl className='admin-order-detail-list'>
+                  <div><dt>Medio de pago</dt><dd>{order.manual_payment_method}</dd></div>
+                  {order.internal_note && <div><dt>Nota</dt><dd>{order.internal_note}</dd></div>}
+                  {(order.attachments || []).map((file) => <div key={file.id}><dt>Soporte de pago</dt><dd><a href={`${import.meta.env.VITE_API_URL || ''}/api/admin/orders/${order.id}/attachments/${file.id}`} target='_blank' rel='noreferrer'>Ver {file.name}</a></dd></div>)}
+                </dl>
+              </section>}
               <section className='admin-order-detail-section'>
                 <h3>Gestionar pedido</h3>
                 {paymentNotCompleted && <p className='admin-order-detail-expired' role='status'><strong>Pago no completado</strong><span>La reserva venció sin que Wompi confirmara el pago. El inventario reservado fue liberado automáticamente.</span></p>}

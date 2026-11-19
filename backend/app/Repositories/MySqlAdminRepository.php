@@ -56,8 +56,10 @@ final class MySqlAdminRepository
     private function attributes(array $attributes, int $revision): array
     {
         $username = AdminAccountNormalizer::normalizeUsername($attributes['username'] ?? null);
+        $role = strtoupper((string) ($attributes['role'] ?? 'ADMIN'));
+        if (! in_array($role, AdminAccountNormalizer::ROLES, true)) throw new PersistenceException(422, 'INVALID_ADMIN_ACCOUNT', null, 'El rol de la cuenta no es válido.');
         if ($username === null || !isset($attributes['name'], $attributes['password_hash']) || trim((string) $attributes['name']) === '') throw new PersistenceException(422, 'INVALID_ADMIN_ACCOUNT', null, 'La cuenta administrativa no es válida.');
-        return ['name' => trim($attributes['name']), 'username' => $username, 'password_hash' => $attributes['password_hash'], 'role' => 'ADMIN', 'active' => (bool) $attributes['active'], 'password_changed_at' => $attributes['password_changed_at'] ?? null, 'revision' => $revision];
+        return ['name' => trim($attributes['name']), 'username' => $username, 'password_hash' => $attributes['password_hash'], 'role' => $role, 'active' => (bool) $attributes['active'], 'password_changed_at' => $attributes['password_changed_at'] ?? null, 'revision' => $revision];
     }
 
     /** @return array<string,mixed> */

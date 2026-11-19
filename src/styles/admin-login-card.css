@@ -1,0 +1,63 @@
+/* Inicio de sesión: tarjeta centrada, igual que el panel del Café. En computador, la ilustración va a la par. */
+.login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); background: #f1ece0; font-family: Inter, system-ui, sans-serif; }
+.login-side { display: grid; place-items: center; padding: 24px 18px; }
+.login-card {
+  width: 100%; max-width: 420px; box-sizing: border-box; padding: 28px 26px 30px; border-radius: 24px; background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 35, 80, 0.14);
+}
+.login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.login-brand img { width: 52px; height: 52px; border-radius: 50%; background: #faf6ec; object-fit: contain; }
+.login-brand strong { display: block; font: 700 19px/1.15 Fraunces, Georgia, serif; color: #0f2350; }
+.login-brand span { font-size: 13px; color: #6b6657; }
+.login-card h1 { margin: 0 0 6px; font: 700 32px/1.1 Fraunces, Georgia, serif; color: #0f2350; }
+.login-sub { margin: 0 0 18px; color: #6b6657; font-size: 15px; }
+.login-card label { display: block; margin: 14px 0 6px; font-weight: 700; font-size: 14px; color: #18213a; }
+.login-card input {
+  width: 100%; box-sizing: border-box; min-height: 52px; padding: 12px 16px; border: 1.5px solid rgba(15, 35, 80, 0.16); border-radius: 14px;
+  background: #fff; font: 500 16px/1.3 Inter, sans-serif; color: #18213a;
+}
+.login-card input:focus { outline: 3px solid rgba(244, 180, 0, 0.45); border-color: #0f2350; }
+.login-password { position: relative; }
+.login-password input { padding-right: 78px; }
+.login-password button { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); min-height: 38px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #0f2350; font: 700 13px/1 Inter, sans-serif; cursor: pointer; }
+.login-error { margin: 14px 0 0; padding: 11px 14px; border-radius: 12px; background: #fdecee; color: #9d1b29; font-weight: 600; font-size: 14px; }
+.login-submit {
+  width: 100%; min-height: 54px; margin-top: 20px; border: 0; border-radius: 14px; background: #0f2350; color: #fff;
+  font: 800 17px/1 Inter, sans-serif; cursor: pointer; transition: transform 0.12s ease, background 0.15s ease;
+}
+.login-submit:hover:not(:disabled) { background: #16336f; }
+.login-submit:active:not(:disabled) { transform: scale(0.99); }
+.login-submit:disabled { opacity: 0.65; cursor: progress; }
+.login-art { display: none; }
+
+@media (min-width: 900px) {
+  .login-page { grid-template-columns: minmax(0, 48fr) minmax(0, 52fr); }
+  .login-art { position: relative; display: grid; place-items: center; padding: 40px; background: #0f2350; }
+  .login-art::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #d32031; }
+  .login-art img { width: 100%; max-width: 640px; max-height: 88vh; object-fit: contain; }
+}
+/* Celulares pequeños: tarjeta más ajustada, sin zoom automático en iOS (inputs de 16 px) */
+@media (max-width: 480px) {
+  .login-side { padding: 16px 12px; align-items: start; padding-top: max(24px, 6dvh); }
+  .login-card { padding: 22px 18px 24px; border-radius: 20px; }
+  .login-card h1 { font-size: 28px; }
+}
+
+/* Modo oscuro del celular o computador: fondo y tarjeta oscuros; el logo cambia a su versión blanca (<picture> en el componente) */
+@media (prefers-color-scheme: dark) {
+  .login-page { background: #0b1226; color-scheme: dark; }
+  .login-card { background: #141d38; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+  .login-brand img { background: transparent; }
+  .login-brand strong, .login-card h1 { color: #fff; }
+  .login-brand span, .login-sub { color: #b4bbd0; }
+  .login-card label { color: #e6e9f2; }
+  .login-card input { background: #0f1830; border-color: rgba(255, 255, 255, 0.2); color: #fff; }
+  .login-card input:focus { border-color: #f4b400; }
+  .login-password button { color: #f4b400; }
+  .login-error { background: #3a1820; color: #ffb3bc; }
+  .login-submit { background: #d32031; }
+  .login-submit:hover:not(:disabled) { background: #e1303f; }
+  /* El autollenado del navegador pinta de claro: lo mantenemos oscuro */
+  .login-card input:-webkit-autofill { -webkit-text-fill-color: #fff; box-shadow: 0 0 0 100px #0f1830 inset; }
+}
+@media (prefers-reduced-motion: reduce) { .login-submit { transition: none; } }

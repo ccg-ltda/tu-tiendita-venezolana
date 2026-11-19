@@ -7,16 +7,19 @@ use App\Models\Order;
 final class MySqlAdminOrderListService
 {
     /** @return array{orders:list<array<string,mixed>>,pagination:array<string,int>} */
-    public function list(int $page, int $perPage, ?string $flowStatus = null): array
+    /** @param list<string>|null $onlyStatuses limita la lista a estos estados (rol ENTREGA) */
+    public function list(int $page, int $perPage, ?string $flowStatus = null, ?array $onlyStatuses = null): array
     {
         if ($page < 1 || $perPage < 1 || $perPage > 100) {
             throw new \InvalidArgumentException('Invalid order page coordinates.');
         }
 
         $query = Order::query();
+        if ($onlyStatuses !== null) $query->whereIn('status', $onlyStatuses);
         if ($flowStatus === 'operational') {
             $query->where(function ($orders): void {
                 $orders->where('payment_status', 'APPROVED')
+                    ->orWhere('channel', 'MANUAL')
                     ->orWhereIn('status', ['PROCESSING', 'READY', 'SHIPPED', 'DELIVERED']);
             });
         } elseif ($flowStatus === 'payment-not-completed') {
@@ -37,6 +40,7 @@ final class MySqlAdminOrderListService
                 'payment_status' => $order->payment_status,
                 'reservation_status' => $order->reservation_status,
                 'payment_flow_status' => $order->paymentFlowStatus(),
+                'channel' => $order->channel,
                 'customer_name' => $order->customer_name,
                 'total' => $order->total_cop,
                 'created_at' => $order->created_at->utc()->format('Y-m-d\\TH:i:s.v\\Z'),
