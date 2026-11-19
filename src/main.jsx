@@ -8,6 +8,7 @@ import { ProductPage } from './pages/ProductPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SeoHead } from './components/common/SeoHead';
 import { ScrollToTop } from './components/common/ScrollToTop';
+import { InstallAppBanner } from './components/common/InstallAppBanner';
 import './styles/global.css';
 import './styles/react.css';
 
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ScrollToTop />
+      <InstallAppBanner />
       <Suspense fallback={null}>
         <Routes>
           <Route path='/' element={<App />} />

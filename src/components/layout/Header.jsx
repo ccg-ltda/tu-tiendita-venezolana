@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import branding from '../../data/branding.json';
 import { Link } from 'react-router-dom';
 import { Package, Search, ShoppingBag } from 'lucide-react';
+import { CategoriesMenu } from './CategoriesMenu';
 
 const SCROLL_DELAY_MS = 450;
 
@@ -23,7 +24,7 @@ function scrollToResults() {
   window.scrollTo({ top: window.scrollY + distance, behavior: reduceMotion ? 'auto' : 'smooth' });
 }
 
-export function Header({ cartCount, onCartOpen, search, onSearch, homeHref = '#inicio', showSearch = true }) {
+export function Header({ cartCount, onCartOpen, search, onSearch, homeHref = '#inicio', showSearch = true, categories, onPromotions }) {
   const logoSrc = `/${branding.logo.replace(/^\/+/, '')}`;
   const scrollTimer = useRef(null);
 
@@ -76,6 +77,7 @@ export function Header({ cartCount, onCartOpen, search, onSearch, homeHref = '#i
           </label>}
 
           <div className='header-actions'>
+            <CategoriesMenu categories={categories} onPromotions={onPromotions} />
             <Link className='cart-btn' to='/blogs'>Blog</Link>
             <button className='cart-btn' onClick={onCartOpen}>
               <ShoppingBag size={18} aria-hidden='true' /> Carrito <span className='cart-count'>{cartCount}</span>
