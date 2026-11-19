@@ -66,7 +66,7 @@ export function AdminInsightsDashboard() {
         </article>
         <article className='ai-card'><h3>Ciudades</h3>
           {data.cities.length ? <ul className='ai-bars'>{data.cities.map((c) => <li key={c.city}><span>{c.city}</span><i style={{ '--w': `${Math.max(6, (c.orders / data.cities[0].orders) * 100)}%` }} /><b>{c.orders}</b></li>)}</ul> : <p className='ai-muted'>Sin ventas en el periodo.</p>}
-          {data.payment_not_completed > 0 && <p className='ai-note'>⚠️ {data.payment_not_completed} pedido(s) quedaron sin pagar en el periodo. Son clientes para recuperar por WhatsApp.</p>}
+          {data.payment_not_completed > 0 && <button type='button' className='ai-note ai-note-link' onClick={() => navigate('/admin/orders?bandeja=pago-no-completado')}>⚠️ {data.payment_not_completed} pedido(s) quedaron sin pagar en el periodo. Son clientes para recuperar por WhatsApp. <b>Ver la lista ›</b></button>}
         </article>
       </div>
       <p className='ai-muted ai-small'>Comparado con los {days} días anteriores ({shortDate(data.range.previous_from)} – {shortDate(data.range.previous_to)}). Solo cuenta pedidos con pago aprobado.</p>

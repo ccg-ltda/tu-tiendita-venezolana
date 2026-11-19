@@ -155,3 +155,18 @@
 .today-links-btn { flex: 1; min-height: 44px; padding: 0 14px; border: 1.5px solid #0f2350; border-radius: 12px; background: #fff; color: #0f2350; font: 700 15px/1 Inter, sans-serif; cursor: pointer; }
 
 .stock-out { display: inline-block; padding: 3px 9px; border-radius: 999px; background: #fdecee; color: #9d1b29; font: 800 12px/1.2 Inter, sans-serif; }
+
+/* Celular: «Hoy» con contadores que caben y el mismo tamaño que «Pedidos» (va al final para ganar a las reglas de arriba) */
+@media (max-width: 860px) {
+  /* Hoy: contadores en 4 columnas que caben, y tamaños de letra/relleno parecidos a Pedidos */
+  .today-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-flow: row; gap: 8px; margin: 4px 0 18px; }
+  .today-tiles button { padding: 10px 2px 9px; border-radius: 14px; min-width: 0; }
+  .today-tiles b { font-size: 22px; }
+  .today-tiles span { font-size: 9.5px; letter-spacing: 0.03em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .today-heading h1 { font-size: 32px; }
+  .today-refresh { width: 44px; height: 40px; margin-top: 8px; font-size: 18px; }
+  .today-section { margin-bottom: 18px; }
+  .today-section h2 { font-size: 20px; margin-bottom: 8px; }
+  .today-empty { padding: 16px 14px; font-size: 14px; border-radius: 14px; }
+  .today-card { border-radius: 14px; }
+}
