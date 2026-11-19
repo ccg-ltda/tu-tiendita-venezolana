@@ -15,7 +15,7 @@ const statusToast = {
 };
 
 export function AdminOrdersPage() {
-  const { ordersByKey, orderDetailsById, ordersPage, setOrdersPage, ensureOrders, refreshOrders, loadOrderDetail, updateOrderStatus, ordersKey } = useAdminData();
+  const { ordersByKey, orderDetailsById, ordersPage, setOrdersPage, ensureOrders, refreshOrders, loadOrderDetail, updateOrderStatus, ordersKey, user } = useAdminData();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [search, setSearch] = useState('');
@@ -126,7 +126,7 @@ export function AdminOrdersPage() {
         </nav>
       </>}
     </div>
-    {hasDetailOpen && <OrderDetailDrawer loading={detailLoading} error={detailError} order={selectedOrder} onClose={closeDetail} onChangeStatus={changeStatus} updatingStatus={updatingStatus} />}
+    {hasDetailOpen && <OrderDetailDrawer loading={detailLoading} error={detailError} order={selectedOrder} onClose={closeDetail} onChangeStatus={changeStatus} updatingStatus={updatingStatus} canSeeAttachments={user?.role === 'ADMIN'} />}
     <AdminToast toast={toast} onDismiss={() => setToast(null)} />
   </>;
 }

@@ -13,7 +13,7 @@ function printReceipt(order) {
   window.print();
 }
 
-export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus, updatingStatus = false }) {
+export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStatus, updatingStatus = false, canSeeAttachments = false }) {
   const paymentNotCompleted = isPaymentNotCompleted(order);
   const nextAction = order && !paymentNotCompleted && ({ PENDING: order.payment_status === 'APPROVED' ? ['PROCESSING', 'Iniciar preparación'] : null, PROCESSING: ['READY', 'Marcar como listo'], READY: ['SHIPPED', 'Marcar como enviado'], SHIPPED: ['DELIVERED', 'Marcar como entregado'] }[order.status]);
   const deliveryType = order?.delivery_type || order?.shipping_type || order?.delivery_method;
@@ -70,7 +70,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                 <dl className='admin-order-detail-list'>
                   <div><dt>Medio de pago</dt><dd>{order.manual_payment_method}</dd></div>
                   {order.internal_note && <div><dt>Nota</dt><dd>{order.internal_note}</dd></div>}
-                  {(order.attachments || []).map((file) => <div key={file.id}><dt>Soporte de pago</dt><dd><a href={`${import.meta.env.VITE_API_URL || ''}/api/admin/orders/${order.id}/attachments/${file.id}`} target='_blank' rel='noreferrer'>Ver {file.name}</a></dd></div>)}
+                  {canSeeAttachments && (order.attachments || []).map((file) => <div key={file.id}><dt>Soporte de pago</dt><dd><a href={`${import.meta.env.VITE_API_URL || ''}/api/admin/orders/${order.id}/attachments/${file.id}`} target='_blank' rel='noreferrer'>Ver {file.name}</a></dd></div>)}
                 </dl>
               </section>}
               <section className='admin-order-detail-section'>
