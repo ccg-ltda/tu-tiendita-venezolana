@@ -15,6 +15,7 @@ export function AdminLoginPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     const logoSrc = `/${branding.logo.replace(/^\/+/, '')}`;
+    const logoDarkSrc = '/assets/logo-blanco.webp';
     const adminVisualSrc = '/assets/admin-login-visual.webp';
 
     // Redirige al panel si ya existe una sesión administrativa válida.
@@ -71,7 +72,10 @@ export function AdminLoginPage() {
             <section className='login-side'>
                 <div className='login-card'>
                     <div className='login-brand'>
-                        <img src={logoSrc} alt='Tu Tiendita Venezolana' />
+                        <picture>
+                            <source srcSet={logoDarkSrc} media='(prefers-color-scheme: dark)' />
+                            <img src={logoSrc} alt='Tu Tiendita Venezolana' width='52' height='52' />
+                        </picture>
                         <div>
                             <strong>Tu Tiendita Venezolana</strong>
                             <span>Panel administrativo</span>

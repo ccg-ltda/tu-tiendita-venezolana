@@ -36,4 +36,28 @@
   .login-art::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #d32031; }
   .login-art img { width: 100%; max-width: 640px; max-height: 88vh; object-fit: contain; }
 }
+/* Celulares pequeños: tarjeta más ajustada, sin zoom automático en iOS (inputs de 16 px) */
+@media (max-width: 480px) {
+  .login-side { padding: 16px 12px; align-items: start; padding-top: max(24px, 6dvh); }
+  .login-card { padding: 22px 18px 24px; border-radius: 20px; }
+  .login-card h1 { font-size: 28px; }
+}
+
+/* Modo oscuro del celular o computador: fondo y tarjeta oscuros; el logo cambia a su versión blanca (<picture> en el componente) */
+@media (prefers-color-scheme: dark) {
+  .login-page { background: #0b1226; color-scheme: dark; }
+  .login-card { background: #141d38; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+  .login-brand img { background: transparent; }
+  .login-brand strong, .login-card h1 { color: #fff; }
+  .login-brand span, .login-sub { color: #b4bbd0; }
+  .login-card label { color: #e6e9f2; }
+  .login-card input { background: #0f1830; border-color: rgba(255, 255, 255, 0.2); color: #fff; }
+  .login-card input:focus { border-color: #f4b400; }
+  .login-password button { color: #f4b400; }
+  .login-error { background: #3a1820; color: #ffb3bc; }
+  .login-submit { background: #d32031; }
+  .login-submit:hover:not(:disabled) { background: #e1303f; }
+  /* El autollenado del navegador pinta de claro: lo mantenemos oscuro */
+  .login-card input:-webkit-autofill { -webkit-text-fill-color: #fff; box-shadow: 0 0 0 100px #0f1830 inset; }
+}
 @media (prefers-reduced-motion: reduce) { .login-submit { transition: none; } }
