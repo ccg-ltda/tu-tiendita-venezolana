@@ -1,5 +1,6 @@
 import { formatCurrency, formatDate, isPaymentNotCompleted, orderDisplayStatusClass, orderDisplayStatusLabel, paymentStatusClass, paymentStatusLabel } from './OrderTable';
 import { orderStatusLabel } from '../../../utils/orderStatus';
+import { paymentReminderMessage, waLink } from '../../../utils/whatsappRecovery';
 
 // El navegador usa el título de la página como nombre del PDF al "Guardar como PDF".
 // Mientras se imprime, el título pasa a "Pedido <referencia> - <cliente>" y luego vuelve al original.
@@ -64,6 +65,7 @@ export function OrderDetailDrawer({ loading, error, order, onClose, onChangeStat
                   <div><dt>Teléfono</dt><dd>{order.customer_phone}</dd></div>
                   {order.customer_document && <div><dt>Documento</dt><dd>{order.customer_document}</dd></div>}
                 </dl>
+                {paymentNotCompleted && order.customer_phone && <a className='admin-order-wa' href={waLink(order.customer_phone, paymentReminderMessage(order.customer_name))} target='_blank' rel='noopener noreferrer'>Escribir por WhatsApp (recordatorio de pago)</a>}
               </section>
               {order.channel === 'MANUAL' && <section>
                 <h3>Pedido manual</h3>

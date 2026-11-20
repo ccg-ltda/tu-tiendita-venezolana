@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminToast } from '../../../components/admin/AdminToast';
 import { unlockAdminToastAudio } from '../../../components/admin/adminToastAudio';
 import { OrderDetailDrawer } from '../../../components/admin/orders/OrderDetailDrawer';
@@ -19,7 +20,8 @@ export function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [search, setSearch] = useState('');
-  const [flowStatus, setFlowStatus] = useState('operational');
+  const [searchParams] = useSearchParams();
+  const [flowStatus, setFlowStatus] = useState(searchParams.get('bandeja') === 'pago-no-completado' ? 'payment-not-completed' : 'operational');
   const [orderStatus, setOrderStatus] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);

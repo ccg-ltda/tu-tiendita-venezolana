@@ -140,3 +140,9 @@
 .admin-orders-table .admin-order-total{font-size:13px}
 .admin-orders-table .admin-order-detail-button{min-height:32px;padding:0 14px}
 .admin-orders-table-wrap{overflow-x:auto}
+
+/* Aviso de pagos pendientes: enlace a la lista */
+.ai-note-link { display: block; width: 100%; text-align: left; border: 0; cursor: pointer; font: inherit; }
+.ai-note-link b { white-space: nowrap; text-decoration: underline; }
+.admin-order-wa { display: flex; align-items: center; justify-content: center; min-height: 46px; margin-top: 12px; padding: 0 14px; border-radius: 12px; background: #1f8f4e; color: #fff; font: 700 14px/1 Inter, system-ui, sans-serif; text-decoration: none; }
+.admin-order-wa:hover { background: #187a42; }
