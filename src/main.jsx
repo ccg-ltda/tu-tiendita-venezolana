@@ -8,12 +8,14 @@ import { ProductPage } from './pages/ProductPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SeoHead } from './components/common/SeoHead';
 import { ScrollToTop } from './components/common/ScrollToTop';
+import { InstallAppBanner } from './components/common/InstallAppBanner';
 import './styles/global.css';
 import './styles/react.css';
 
 // El blog y el admin no los carga el storefront publico: separarlos en su
 // propio chunk achica el bundle que SI se descarga en cada visita al
 // catalogo (PageSpeed: CSS/JS sin usar en el home).
+const InstallPage = lazy(() => import('./pages/InstallPage').then((m) => ({ default: m.InstallPage })));
 const BlogListPage = lazy(() => import('./pages/BlogListPage').then((m) => ({ default: m.BlogListPage })));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
 
@@ -35,9 +37,12 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ScrollToTop />
+      <InstallAppBanner />
       <Suspense fallback={null}>
         <Routes>
           <Route path='/' element={<App />} />
+          <Route path='/instalar' element={<InstallPage app='tienda' />} />
+          <Route path='/admin/instalar' element={<InstallPage app='panel' />} />
           <Route path='/blogs' element={<BlogListPage />} />
           <Route path='/blogs/:slug' element={<BlogPostPage />} />
           <Route path='/categoria/:slug' element={<CategoryPage />} />

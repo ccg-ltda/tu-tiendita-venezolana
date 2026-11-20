@@ -81,6 +81,8 @@ export default function App() {
         onCartOpen={() => setDrawerOpen(true)}
         search={search}
         onSearch={setSearch}
+        categories={categories}
+        onPromotions={selectCategory}
       />
       <div className='banner-wrap'><picture><source media='(max-width:767px)' srcSet={`/assets/banner-navidad-mobile-720.webp 720w, ${branding.bannerMobile} 900w`} sizes='calc(100vw - 48px)' /><img src={branding.banner} srcSet={`/assets/banner-navidad-desktop-1200.webp 1200w, ${branding.banner} 1800w`} sizes='(min-width:1240px) 1192px, calc(100vw - 48px)' alt='Tu Tiendita Venezolana' width='1600' height='500' fetchPriority='high' /></picture></div>
       <CategoryNav categories={categories} active={activeCat} onSelect={selectCategory} />
